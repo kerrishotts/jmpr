@@ -2,55 +2,57 @@ var camera, cLight, scene, renderer;
 var spd = 15;
 
 class Level {
-
-	_initBoxArray() {
-  	let blockSize = this.blockSize,
-        drawDistance = this.drawDistance,
-        level = this.level,
-        _boxes = this._boxes;
-    let srcMaterials = [0,1].map(v => new THREE.MeshLambertMaterial({
-    	color: (v === 0) ? 0xFF8020 : 0x8020FF, wireframe: false
-    }));
-  	let box = new THREE.BoxGeometry(blockSize, 100*blockSize, blockSize, 1, 1, 1);
-    for (let z = 0; z < drawDistance; z++) {
-    	_boxes.push(level[0].map((_, idx) => new THREE.Mesh(box, srcMaterials[(z + idx) % 2])));
+    _initBoxArray() {
+        let blockSize = this.blockSize,
+            drawDistance = this.drawDistance,
+            level = this.level,
+            _boxes = this._boxes;
+            
+        let srcMaterials = [0,1].map(v => new THREE.MeshLambertMaterial({
+            color: (v === 0) ? 0xFF8020 : 0x8020FF, wireframe: false
+        }));
+        
+  	     let box = new THREE.BoxGeometry(blockSize, 100*blockSize, blockSize, 1, 1, 1);
+        
+        for (let z = 0; z < drawDistance; z++) {
+            _boxes.push(level[0].map((_, idx) => new THREE.Mesh(box, srcMaterials[(z + idx) % 2])));
+        }
     }
-  }
   
-  constructor(level, {blockSize = 200, stepSize = 25, drawDistance = 20} = {}) {
-  	this.blockSize = blockSize;
-    this.stepSize = stepSize;
-    this.drawDistance = drawDistance;
-  	this.level = level.map(r => r.split(" ").map(c => Number.isNaN(Number(c)) ? c : Number(c))); 
-    this.curRow = 0;
-    this.maxVisibleRow = drawDistance - 1;
-    this._boxes = [];
-    this._initBoxArray();
-  }
+    constructor(level, {blockSize = 200, stepSize = 25, drawDistance = 20} = {}) {
+        this.blockSize = blockSize;
+        this.stepSize = stepSize;
+        this.drawDistance = drawDistance;
+        this.level = level.map(r => r.split(" ").map(c => Number.isNaN(Number(c)) ? c : Number(c))); 
+        this.curRow = 0;
+        this.maxVisibleRow = drawDistance - 1;
+        this._boxes = [];
+        this._initBoxArray();
+    }
   
-  get description() {
-    return this.level.map(r => r.join(" ")).join(String.fromCharCode(10));  
-  }
+    get description() {
+      return this.level.map(r => r.join(" ")).join(String.fromCharCode(10));  
+    }
   
-  makeScene() {
-    let scene = new THREE.Scene();
+    makeScene() {
+        let scene = new THREE.Scene();
     
-    this.updateScene(0, {force: true});
-    this._boxes.forEach(z => z.forEach(mesh => scene.add(mesh)));
+        this.updateScene(0, {force: true});
+        this._boxes.forEach(z => z.forEach(mesh => scene.add(mesh)));
     
-    let aLight = new THREE.AmbientLight(0xFFFFFF, 0.25);
-    //scene.add(aLight); 
+        //let aLight = new THREE.AmbientLight(0xFFFFFF, 0.25);
+        //scene.add(aLight); 
     
-    let hLight = new THREE.HemisphereLight(0xFFFFFF, 0x000000, 1);
-    scene.add(hLight);
+        let hLight = new THREE.HemisphereLight(0xFFFFFF, 0x000000, 1);
+        scene.add(hLight);
 
-    let dLight = new THREE.DirectionalLight(0xFFFFFF, 0.25);
-    dLight.position.set(0, 10, 3);
-    scene.add(dLight);
+        let dLight = new THREE.DirectionalLight(0xFFFFFF, 0.25);
+        dLight.position.set(0, 10, 3);
+        scene.add(dLight);
 
-    return scene;
+        return scene;
  
-  }
+    }
   
   updateScene(cameraZ, {force = false} = {}) {
 		let stepSize = this.stepSize, blockSize = this.blockSize, level = this.level,
