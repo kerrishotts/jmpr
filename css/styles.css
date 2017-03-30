@@ -3,21 +3,32 @@ body {
     margin: 0;
 }
 
-#d {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1em;
-  z-index:99;
-  color: white;
+.fps {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 1em;
+    z-index:99;
+    color: white;
+    width: 100%;
+    text-align: right;
 }
 
-#l {
-  display: none;
-  white-space: pre;
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 30vw;
-  bottom: 0;
-  color: white;
+#level {
+    display: none;
+    white-space: pre;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 30vw;
+    bottom: 0;
+    color: white;
+}
+
+#toggle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    height: 1em;
+    width: 25%;
 }
