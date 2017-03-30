@@ -29,9 +29,12 @@ class FPS {
 
         this._oldTime = undefined;
         this._lastReportTime = 0;
+
+        this._extraInfo = "";
     }
 
-    frame(time) {
+    frame(time, extraInfo) {
+        this._extraInfo = extraInfo || "";
         let delta = 0;
         if (this._oldTime !== undefined) {
             delta = time - this._oldTime;
@@ -61,7 +64,7 @@ class FPS {
             }
             return acc;
         }, []).join("");
-        this._el.innerHTML = `rFPS: ${fmt2(recentFPS)} (<span style='letter-spacing: -0.5em'>${recentFrameTimes}</span> )`;
+        this._el.innerHTML = `rFPS: ${fmt2(recentFPS)} (<span style='letter-spacing: -0.5em'>${recentFrameTimes}</span> ${this._extraInfo} )`;
     }
 }
 
@@ -176,6 +179,51 @@ class Level {
     }
 }
 
+class Player {
+
+    /* physics from https://www.burakkanber.com/blog/modeling-physics-javascript-gravity-and-drag/ */
+    constructor({ position = (new THREE.Vector3()),
+                  velocity = (new THREE.Vector3()),
+                  mass = 0.1,
+                  radius = 15,
+                  restitution = 0.7,
+                  density = 1.22,
+                  gravity = 9.81
+      } = {}) {
+        this.cd = 0.47;
+        this.density = density.copy;
+        this.mass = mass;
+        this.radius = radius;
+        this.restitution = restitution;
+        this.gravity = gravity;
+
+        this.position = position.clone();
+        this.velocity = velocity.clone();
+    }
+
+    applyPhysics(delta) {
+        //delta = 1000 / (delta === 0 ? 1 : delta);
+        delta = 1;
+        let cd = this.cd,
+            rho = this.density,
+            mass = this.mass,
+            radius = this.radius,
+            position = this.position,
+            velocity = this.velocity,
+            gravity = this.gravity,
+            A = Math.PI * (radius * radius) / 10000,
+            F = [velocity.x, velocity.y, velocity.z].map(v => -0.5 * cd * A * rho * (v * v * v) / Math.abs(v)).
+              map(v => isNaN(v) ? 0 : v).
+              map((v, idx) => (idx === 1) ? (this.position.z < 0 ? gravity : 0) + (v / mass) : v / mass);
+        ["x", "y", "z"].forEach((axis, idx) => {
+            velocity[`set${axis.toUpperCase()}`](velocity[axis] + (F[idx] * delta));
+            position[`set${axis.toUpperCase()}`](position[axis] - (velocity[axis] * delta));
+
+            //console.log([JSON.stringify(velocity), JSON.stringify(position)]);
+        });
+    }
+}
+
 class Game {
     constructor() {
         this.camera = undefined;
@@ -185,11 +233,26 @@ class Game {
 
         this.fps = new FPS();
 
-        this.spd = 15;
+        this.player = new Player({
+            position: new THREE.Vector3(0, 200, 1500),
+            velocity: new THREE.Vector3(0, 0, 15)
+        });
 
         this.level = new Level([
-            ".. 00 00 00 00 00 00 00 50 00 00 00 00 00 00 00 ..",
             ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 51 51 51 51 51 51 51 51 51 51 51 51 51 51 51 ..",
             ".. 51 51 51 51 51 51 51 51 51 51 51 51 51 51 51 ..",
             ".. 00 00 00 00 60 60 52 52 52 00 00 00 00 00 00 ..",
             ".. 00 00 00 00 60 60 53 53 53 00 00 00 00 00 00 ..",
@@ -249,7 +312,7 @@ class Game {
         this.paused = false;
 
         this.camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 1, 10000);
-        this.camera.position.set(0, 200, 2000);
+        this.camera.position.copy(this.player.position);
 
         this.scene = this.level.makeScene();
         this.scene.fog = new THREE.FogExp2(0x000000, 0.00033);
@@ -274,25 +337,33 @@ class Game {
             scene = this.scene,
             level = this.level,
             renderer = this.renderer,
-            spd = this.spd;
+            player = this.player,
+            force = false;
 
-        let d = this.fps.frame(t);
+        let d = this.fps.frame(t, JSON.stringify(player.position)); force = d === 0;
 
-        //    camera.position.x += 5;
-        let camHeight = level.heightAtPosition(camera.position);
-        if (camHeight) {
-            camHeight += 200;
-            if (camHeight !== camera.position.y) {
-                camera.position.y += (camHeight - camera.position.y) / (100 / spd);
-            }
+        // detect if at end of level so we can restart
+        if (player.position.z < -(level.level.length * level.blockSize)) {
+            player.position.setZ(500);
+            force = true;
         }
-        camera.position.z -= spd * (d / 16.67);
-        if (camera.position.z < -(level.level.length * level.blockSize)) {
-            camera.position.z = 2000;
-            level.updateScene(camera.position.z, { force: true });
+
+        let neededHeight = level.heightAtPosition(player.position);
+        if (neededHeight !== "undefined") {
+            neededHeight += 200;
         } else {
-            level.updateScene(camera.position.z);
+            neededHeight = -10000;
         }
+
+        if ((neededHeight !== "undefined") && (player.position.y <= neededHeight)) {
+            player.velocity.setY(-(Math.abs(player.velocity.y) * player.restitution));
+            player.position.setY(neededHeight); // - (neededHeight / player.position.y) / 10);
+        }
+
+        player.applyPhysics(d);
+        this.camera.position.copy(this.player.position);
+
+        level.updateScene(player.position.z, { force });
 
         renderer.render(scene, camera);
     }
