@@ -1,0 +1,25 @@
+{
+  "name": "jmpr",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "serve": "http-server -p 8080 -c-1 ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kerrishotts/jmpr.git"
+  },
+  "author": "Kerri Shotts",
+  "bugs": {
+    "url": "https://github.com/kerrishotts/jmpr/issues"
+  },
+  "homepage": "https://github.com/kerrishotts/jmpr#readme",
+  "devDependencies": {
+    "http-server": "^0.9.0"
+  },
+  "dependencies": {
+    "three": "^0.84.0"
+  }
+}
