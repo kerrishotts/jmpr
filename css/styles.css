@@ -1,0 +1,23 @@
+body {
+    overflow: hidden;
+    margin: 0;
+}
+
+#d {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1em;
+  z-index:99;
+  color: white;
+}
+
+#l {
+  display: none;
+  white-space: pre;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 30vw;
+  bottom: 0;
+  color: white;
+}
