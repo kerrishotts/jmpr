@@ -52,19 +52,21 @@ class FPS {
             this.report();
             this._lastReportTime = time;
         }
-        return delta;
+        return Math.min(delta, 67); // clamp to 67ms for integrations later
     }
 
     report() {
-        let recentAvgFrameTime = this._recentTime / this._recentFrameTimes.length;
+        let recentAvgFrameTime = this._recentTime / this.history;
         let recentFPS = 1000 / recentAvgFrameTime;
-        let recentFrameTimes = this._recentFrameTimes.reduce((acc, v, idx, arr) => {
+        let lastFrameTime = (this._recentFrameTimes[this._recentFrameTimes.length - 1]);
+        /*let recentFrameTimes = this._recentFrameTimes.reduce((acc, v, idx, arr) => {
             if (idx > arr.length - 60) {
                 acc.push(["&#x2804;", "&#x2806;", "&#x2807;"][Math.min(Math.floor(v / 18), 2)]);
             }
             return acc;
-        }, []).join("");
-        this._el.innerHTML = `rFPS: ${fmt2(recentFPS)} (<span style='letter-spacing: -0.5em'>${recentFrameTimes}</span> ${this._extraInfo} )`;
+        }, []).join("");*/
+        //this._el.innerHTML = `${Math.floor(this._oldTime)} rFPS: ${fmt2(recentFPS)} (<span style='letter-spacing: -0.5em'>${recentFrameTimes}</span> ${this._extraInfo} )`;
+        this._el.innerHTML = `${lastFrameTime} rFPS: ${fmt2(recentFPS)} ${this._extraInfo}`;
     }
 }
 
@@ -160,11 +162,11 @@ class Level {
         let offsetY = 50 * this.stepSize;
         let r = this.level[z];
         if (r) {
-            let c = r[x];
-            if (Number.isNaN(Number(c))) {
+            let c = parseInt(r[x], 10);
+            if (Number.isNaN(c)) {
                 return undefined;
             }
-            let h = -offsetY + (Number(c) * this.stepSize);
+            let h = -offsetY + (c * this.stepSize);
             return h;
         } else {
             return undefined;
@@ -184,9 +186,9 @@ class Player {
     /* physics from https://www.burakkanber.com/blog/modeling-physics-javascript-gravity-and-drag/ */
     constructor({ position = (new THREE.Vector3()),
                   velocity = (new THREE.Vector3()),
-                  mass = 0.1,
+                  mass = 200,
                   radius = 15,
-                  restitution = 0.7,
+                  restitution = 0.3,
                   density = 1.22,
                   gravity = 9.81
       } = {}) {
@@ -201,26 +203,24 @@ class Player {
         this.velocity = velocity.clone();
     }
 
-    applyPhysics(delta) {
-        //delta = 1000 / (delta === 0 ? 1 : delta);
-        delta = 1;
-        let cd = this.cd,
+    applyPhysics(d) {
+        let delta = d / (1000 / 60),
+            cd = this.cd,
             rho = this.density,
             mass = this.mass,
             radius = this.radius,
             position = this.position,
             velocity = this.velocity,
             gravity = this.gravity,
-            A = Math.PI * (radius * radius) / 10000,
-            F = [velocity.x, velocity.y, velocity.z].map(v => -0.5 * cd * A * rho * (v * v * v) / Math.abs(v)).
-              map(v => isNaN(v) ? 0 : v).
-              map((v, idx) => (idx === 1) ? (this.position.z < 0 ? gravity : 0) + (v / mass) : v / mass);
-        ["x", "y", "z"].forEach((axis, idx) => {
-            velocity[`set${axis.toUpperCase()}`](velocity[axis] + (F[idx] * delta));
-            position[`set${axis.toUpperCase()}`](position[axis] - (velocity[axis] * delta));
-
-            //console.log([JSON.stringify(velocity), JSON.stringify(position)]);
-        });
+            A = Math.PI * (radius * radius);
+        for (let i = 0, v = velocity.getComponent(i); i < 3; i++) {
+            v = -0.5 * cd * A * rho * (v * v * v) / Math.abs(v);
+            v = isNaN(v) ? 0 : v;
+            v = (i === 1) ? (position.z < 0 ? gravity : 0) + (v / mass) : v / mass;
+            v *= delta;
+            velocity.setComponent(i, velocity.getComponent(i) + v);
+            position.setComponent(i, position.getComponent(i) - (velocity.getComponent(i) * delta));
+        }
     }
 }
 
@@ -239,6 +239,16 @@ class Game {
         });
 
         this.level = new Level([
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
+            ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
             ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
             ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
             ".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..",
@@ -329,18 +339,19 @@ class Game {
     }
 
     animate(t) {
-        if (!this.paused) {
-            requestAnimationFrame(t => this.animate(t));
-        }
 
-        let camera = this.camera,
+        var camera = this.camera,
             scene = this.scene,
             level = this.level,
             renderer = this.renderer,
             player = this.player,
-            force = false;
+            distance;
 
-        let d = this.fps.frame(t, JSON.stringify(player.position)); force = d === 0;
+        var d = this.fps.frame(t/*, JSON.stringify(player.position)*/);
+        var force = d === 0;
+        var grounded = false;
+
+        player.applyPhysics(d);
 
         // detect if at end of level so we can restart
         if (player.position.z < -(level.level.length * level.blockSize)) {
@@ -356,16 +367,25 @@ class Game {
         }
 
         if ((neededHeight !== "undefined") && (player.position.y <= neededHeight)) {
-            player.velocity.setY(-(Math.abs(player.velocity.y) * player.restitution));
-            player.position.setY(neededHeight); // - (neededHeight / player.position.y) / 10);
+            distance = neededHeight - player.position.y;
+            player.velocity.y = (-(Math.abs(player.velocity.y) * player.restitution));
+            player.position.y += (distance / 3) * (d / (1000 / 60));
+            grounded = true;
         }
 
-        player.applyPhysics(d);
         this.camera.position.copy(this.player.position);
+
+        if (grounded) {
+            this.camera.position.x += Math.cos((t/3) * (Math.PI / 180)) * 10;
+            this.camera.position.y += Math.abs(Math.sin((t/2) * (Math.PI / 180)) * 10);
+        }
 
         level.updateScene(player.position.z, { force });
 
         renderer.render(scene, camera);
+        if (!this.paused) {
+            requestAnimationFrame(t => this.animate(t));
+        }
     }
 
     toggleState() {
