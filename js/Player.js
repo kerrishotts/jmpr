@@ -7,7 +7,7 @@ exports.Player = class Player {
                   level,
                   mass = 200,
                   radius = 15,
-                  restitution = 0.3,
+                  restitution = 0.7,
                   density = 1.22,
                   gravity = 9.81
       } = {}) {
@@ -24,6 +24,7 @@ exports.Player = class Player {
 
         this.grounded = false;
         this.dead = false;
+        this.crouch = false;
     }
 
     applyPhysics(d) {
@@ -40,7 +41,25 @@ exports.Player = class Player {
         for (let i = 0, v = velocity.getComponent(i); i < 3; i++) {
             v = -0.5 * cd * A * rho * (v * v * v) / Math.abs(v);
             v = isNaN(v) ? 0 : v;
-            v = (i === 1) ? (position.z < 0 ? gravity : 0) + (v / mass) : v / mass;
+
+            /*eslint-disable no-fallthrough*/
+            switch (i) {
+            case 0: // x
+                v = (v / mass);
+                break;
+            case 1: // y
+                if (position.z < 0) {
+                    v = gravity + (v / mass);
+                    break;
+                }
+            case 2: // z
+            default:
+                v = v / mass;
+            }
+
+            /*eslint-enable no-fallthrough*/
+
+            //v = (i === 1) ? (position.z < 0 ? gravity : 0) + (v / mass) : v / mass;
             v *= delta;
             velocity.setComponent(i, velocity.getComponent(i) + v);
             position.setComponent(i, position.getComponent(i) - (velocity.getComponent(i) * delta));
@@ -50,16 +69,23 @@ exports.Player = class Player {
 
         let neededHeight = level.heightAtPosition(position);
         if (neededHeight !== "undefined") {
-            neededHeight += 200;
+            neededHeight += 100;
         } else {
             neededHeight = -10000;
         }
 
         if ((neededHeight !== "undefined") && (position.y <= neededHeight)) {
             let distance = neededHeight - position.y;
+            if (distance > level.blockSize) {
+                this.dead = true;
+            }
             velocity.y = (-(Math.abs(velocity.y) * this.restitution));
             position.y += (distance / 3) * (d / (1000 / 60));
             this.grounded = true;
+        }
+
+        if (position.y < -(level.blockSize * 200)) {
+            this.dead = true;
         }
     }
 };
