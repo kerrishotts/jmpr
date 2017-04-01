@@ -135,17 +135,19 @@ exports.Level = class Level {
             }
         }
 
-        // colors get change irrespective of adjusting visible boxes
-        for (let z = curRow; z <= Math.min(level.length - 1, maxVisibleRow); z++) {
-            let r = level[z], dz = z - curRow, maxDistance = Math.sqrt(Math.pow(drawDistance, 2) + Math.pow(r.length - 1, 2));
-            for (let x = r.length - 1; x > -1; x--) {
-                let mesh = _boxes[dz][x];
-                mesh.material.color.set(colors[(z + x) % numColors]);
-                if (msBetweenBeats > 0) {
-                    var distanceFromZero = Math.sqrt(Math.pow(drawDistance - dz, 2) + (x * x));
-                    distanceFromZero = 1/(distanceFromZero / maxDistance);
-                    var lOffset = ((1 - (timeSinceLastBeat / msBetweenBeats)) * beatIntensity); // * distanceFromZero;
-                    mesh.material.color.offsetHSL(0, 0, lOffset);
+        if (msBetweenBeats > 0) {
+            // colors get change irrespective of adjusting visible boxes
+            for (let z = curRow; z <= Math.min(level.length - 1, maxVisibleRow); z++) {
+                let r = level[z], dz = z - curRow, maxDistance = Math.sqrt(Math.pow(drawDistance, 2) + Math.pow(r.length - 1, 2));
+                for (let x = r.length - 1; x > -1; x--) {
+                    let mesh = _boxes[dz][x];
+                    mesh.material.color.set(colors[(z + x) % numColors]);
+                    if (msBetweenBeats > 0) {
+                        var distanceFromZero = Math.sqrt(Math.pow(drawDistance - dz, 2) + (x * x));
+                        distanceFromZero = 1/(distanceFromZero / maxDistance);
+                        var lOffset = ((1 - (timeSinceLastBeat / msBetweenBeats)) * beatIntensity); // * distanceFromZero;
+                        mesh.material.color.offsetHSL(0, 0, lOffset);
+                    }
                 }
             }
         }
