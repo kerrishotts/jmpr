@@ -86,7 +86,7 @@ module.exports = {
         "id-blacklist": "error",
         "id-length": "off",
         "id-match": "error",
-        "indent": "error",
+        "indent": "warn",
         "init-declarations": "off",
         "jsx-quotes": "error",
         "key-spacing": "error",
@@ -97,12 +97,12 @@ module.exports = {
                 "before": true
             }
         ],
-        "line-comment-position": "error",
+        "line-comment-position": "off",
         "linebreak-style": [
             "error",
             "unix"
         ],
-        "lines-around-comment": "error",
+        "lines-around-comment": "off",
         "lines-around-directive": "error",
         "max-depth": "off",
         "max-len": "off",
@@ -123,7 +123,7 @@ module.exports = {
         "no-alert": "error",
         "no-array-constructor": "error",
         "no-await-in-loop": "error",
-        "no-bitwise": "error",
+        "no-bitwise": "warn",
         "no-caller": "error",
         "no-catch-shadow": "error",
         "no-confusing-arrow": "off",
@@ -142,13 +142,13 @@ module.exports = {
         "no-implicit-coercion": "error",
         "no-implicit-globals": "error",
         "no-implied-eval": "error",
-        "no-inline-comments": "error",
+        "no-inline-comments": "off",
         "no-invalid-this": "error",
         "no-iterator": "error",
         "no-label-var": "error",
         "no-labels": "error",
         "no-lone-blocks": "error",
-        "no-lonely-if": "error",
+        "no-lonely-if": "off",
         "no-loop-func": "off",
         "no-magic-numbers": "off",
         "no-mixed-operators": "off",
@@ -259,7 +259,7 @@ module.exports = {
         ],
         "sort-imports": "error",
         "sort-keys": [
-            "error",
+            "warn",
             "asc"
         ],
         "sort-vars": "off",
