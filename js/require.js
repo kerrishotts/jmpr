@@ -5,6 +5,9 @@ function require(reqModule) {
     if (module.substr(0, 2) === "./") {
         module = module.substr(2);
     }
+    if (module.substr(0, 3) === "../") {
+        module = module.substr(3);
+    }
     module = module.replace(".js", "");
     return exports[module];
 }
