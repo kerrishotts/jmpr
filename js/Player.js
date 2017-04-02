@@ -44,22 +44,19 @@ exports.Player = class Player {
 
             /*eslint-disable no-fallthrough*/
             switch (i) {
-            case 0: // x
-                v = (v / mass);
-                break;
             case 1: // y
                 if (position.z < 0) {
                     v = gravity + (v / mass);
                     break;
                 }
             case 2: // z
+            case 0: // x
             default:
-                v = v / mass;
+                v /= mass;
             }
 
             /*eslint-enable no-fallthrough*/
 
-            //v = (i === 1) ? (position.z < 0 ? gravity : 0) + (v / mass) : v / mass;
             v *= delta;
             velocity.setComponent(i, velocity.getComponent(i) + v);
             position.setComponent(i, position.getComponent(i) - (velocity.getComponent(i) * delta));
@@ -69,7 +66,7 @@ exports.Player = class Player {
 
         let neededHeight = level.heightAtPosition(position);
         if (neededHeight !== "undefined") {
-            neededHeight += 100;
+            neededHeight += 200;
         } else {
             neededHeight = -10000;
         }
@@ -80,7 +77,7 @@ exports.Player = class Player {
                 this.dead = true;
             }
             velocity.y = (-(Math.abs(velocity.y) * this.restitution));
-            position.y += (distance / 3) * (d / (1000 / 60));
+            position.y += (distance / 3) * delta;
             this.grounded = true;
         }
 
