@@ -1,20 +1,40 @@
 /* globals exports, require, THREE */
-const FPS = require("./FPS"),
+var FPS = require("./FPS"),
     Player = require("./Player"),
-    Level = require("./Level");
+    Level = require("./Level"),
+    levels = require("./levels");
 
 exports.Game = class Game {
     constructor(controllers) {
         this.camera = undefined;
         this.scene = undefined;
+        this.sound = undefined;
+        this.audioLoader = undefined;
         this.renderer = undefined;
         this.paused = false;
+        this.waitingForInteraction = true;
         this.controllers = controllers;
 
         this.fps = new FPS({ fancy: false });
 
-        this.level = Level.createLevel(Level.levelOne(), { bpm: 0,
-        colors: [0xFFE0C0, 0xE0C0FF, 0xC0FFE0, 0xC0E0FF, 0xE0FFC0, 0xFFC0E0] });
+        this.init();
+    }
+
+    start(atLevel = 1) {
+        let normalizedLevel = atLevel - 1,
+            level = levels[normalizedLevel];
+        this.level = Level.createLevel(level, level.options);
+        if (level.options.music) {
+            this.audioLoader.load(`music/${level.options.music}`, buffer => {
+                let sound = this.sound;
+                sound.setBuffer(buffer);
+                sound.setLoop(true);
+                sound.setVolume(0.5);
+            });
+        }
+
+        this.scene = this.level.makeScene();
+        this.scene.fog = new THREE.FogExp2(0x000000, 0.00066);
 
         this.player = new Player({
             level: this.level,
@@ -25,21 +45,23 @@ exports.Game = class Game {
 
         this._bob = 0;
 
-        this._directions = 0;
-
-    }
-
-    start() {
-        this.init();
         this.resume();
         requestAnimationFrame(t => this.animate(t));
     }
 
     pause() {
         this.paused = true;
+        if (this.sound && this.sound.isPlaying) {
+            this.sound.pause();
+            this.level.stopBeat();
+        }
     }
 
     resume() {
+        if (this.sound && this.sound.isPlaying) {
+            this.sound.play();
+            this.level.startBeat();
+        }
         this.paused = false;
         this.fps.reset();
         //requestAnimationFrame(t => this.animate(t));
@@ -50,10 +72,11 @@ exports.Game = class Game {
         this.controllers.init();
 
         this.camera = new THREE.PerspectiveCamera(120, window.innerWidth / window.innerHeight, 1, 10000);
-        this.camera.position.copy(this.player.position);
 
-        this.scene = this.level.makeScene();
-        this.scene.fog = new THREE.FogExp2(0x000000, 0.00066);
+        var listener = new THREE.AudioListener();
+        this.camera.add(listener);
+        this.sound = new THREE.Audio(listener);
+        this.audioLoader = new THREE.AudioLoader();
 
         this.renderer = new THREE.WebGLRenderer({
             antialias: false
@@ -65,6 +88,18 @@ exports.Game = class Game {
 
         document.addEventListener("resize", evt => this.onResize(evt));
 
+        document.addEventListener("touchend", evt => this.onTouchEnd(evt));
+
+    }
+
+    onTouchEnd(evt) {
+        if (!this.hasTriggeredPlayback) {
+            if (this.sound) {
+                this.sound.play();
+                this.sound.stop();
+                this.hasTriggeredPlayback = true;
+            }
+        }
     }
 
     onResize(evt) {
@@ -86,6 +121,10 @@ exports.Game = class Game {
             pause = state.pause,
             exit = state.exit,
             retry = state.retry;
+
+        if (up || down || left || right) {
+            this.waitingForInteraction = false;
+        }
 
         if (pause) {
             this.pause()
@@ -130,6 +169,7 @@ exports.Game = class Game {
         var camera = this.camera,
             scene = this.scene,
             level = this.level,
+            sound = this.sound,
             renderer = this.renderer,
             player = this.player;
 
@@ -137,21 +177,37 @@ exports.Game = class Game {
 
         // report fps and get delta
         var d = this.fps.frame(t);
-        var force = d === 0;            // if d is zero we need to redraw the entire level
+        var force = d === 0 || player.dead;            // if d is zero we need to redraw the entire level
 
         this.update(t, d);
 
-        if (this.paused) {
+        if (this.paused || this.waitingForInteraction) {
             return;
+        }
+
+        if (player.position.z < 0 && sound && !sound.isPlaying) {
+            sound.play();
+            level.startBeat();
         }
 
         // detect if at end of level so we can restart
         if (player.dead || player.position.z < -(level.level.length * level.blockSize)) {
+            if (sound && sound.isPlaying) {
+                sound.stop();
+                level.stopBeat();
+            }
+            d = 0;
             player.position.set(0, 200, 1500);
             player.velocity.set(0, 0, 15);
             player._bob = 0;
-            player.dead = false;
             force = true;
+            this.waitingForInteraction = true;
+            this.pause();
+            if (player.dead) {
+                player.dead = false;
+                level.updateScene(player.position.z, { force });
+                return;
+            }
         }
 
         player.applyPhysics(d);
