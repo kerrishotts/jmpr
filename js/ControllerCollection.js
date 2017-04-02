@@ -31,13 +31,15 @@ exports.ControllerCollection = class ControllerCollection {
         state.exit = false;
         state.retry = false;
 
-        controllers.forEach(controller => {
-            states.forEach(stateToCheck => {
+        for (var i = controllers.length - 1; i > -1; i--) {
+            var controller = controllers[i];
+            for (var l = states.length - 1; l > -1; l--) {
+                var stateToCheck = states[l];
                 if (controller[stateToCheck]) {
                     state[stateToCheck] = true;
                 }
-            });
-        });
+            }
+        }
 
         return this._state;
     }
