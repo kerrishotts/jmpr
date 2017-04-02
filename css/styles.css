@@ -1,9 +1,17 @@
+* {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
 body {
     overflow: hidden;
     margin: 0;
 }
 
 .fps {
+    display: none;
     position: absolute;
     top: 0;
     right: 0;
@@ -14,21 +22,74 @@ body {
     text-align: right;
 }
 
-#level {
-    display: none;
-    white-space: pre;
+.pause, .exit, .retry, .up, .down, .left, .right {
     position: absolute;
-    right: 0;
-    top: 0;
-    width: 30vw;
-    bottom: 0;
-    color: white;
+    -webkit-appearance: none;
+    background-color: transparent;
+    color: rgba(255,255,255,0.33);
+    font-size: 22px;
+    text-align: center;
+    border: none;
+    display: block;
 }
 
-#toggle {
-    position: absolute;
+.pause, .retry, .exit, .down {
+    width: 88px;
+    height: 88px;
+    z-index: 999;
+    outline: none;
+    line-height: 88px;
+    border-radius: 22px;
+}
+
+.pause:active, .retry:active, .exit:active, .down:active {
+    background-color: rgba(255,255,255,0.33);
+    color: black;
+    outline: none;
+}
+
+.pause {
+    left: calc(50vw - 44px);
+    top: 0;
+}
+
+.retry {
+    left: 0;
+    top: 0;
+}
+
+.exit {
     right: 0;
-    bottom: 0;
-    height: 3em;
-    width: 25%;
+    top: 0;
+}
+
+.left {
+    width: 49vw;
+    height: 75vh;
+    top: 0;
+    left: 0;
+    text-align: left;
+    line-height: 75vh;
+}
+
+.right {
+    width: 49vw;
+    height: 75vh;
+    top: 0;
+    right: 0;
+    text-align: right;
+    line-height: 75vh;
+}
+
+.up {
+    height: 25vh;
+    top: 75vh;
+    left: 0;
+    width: 100vw;
+    line-height: 25vh;
+}
+
+.down {
+    right: 44px;
+    bottom: 44px;
 }
