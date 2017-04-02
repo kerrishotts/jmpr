@@ -1,4 +1,5 @@
 var exports = {};
+/* eslint-disable no-unused-vars */
 function require(reqModule) {
     let module = reqModule;
     if (module.substr(0, 2) === "./") {
