@@ -64,17 +64,24 @@ exports.Player = class Player {
 
         this.grounded = false;
 
+        if (position.z > 0) {
+            return;
+        }
+
         let neededHeight = level.heightAtPosition(position);
+        let flag = level.flagAtPosition(position);
+
         if (neededHeight !== "undefined") {
             neededHeight += 200;
         } else {
-            neededHeight = -10000;
+            neededHeight = -(level.blockSize * 200);
         }
 
         if ((neededHeight !== "undefined") && (position.y <= neededHeight)) {
             let distance = neededHeight - position.y;
             if (distance > level.blockSize) {
                 this.dead = true;
+                return;
             }
             velocity.y = (-(Math.abs(velocity.y) * this.restitution));
             position.y += (distance / 3) * delta;
@@ -83,6 +90,12 @@ exports.Player = class Player {
 
         if (position.y < -(level.blockSize * 200)) {
             this.dead = true;
+            this.grounded = false;
         }
+
+        if (flag === "^" && this.grounded) {
+            velocity.y -= 115;
+        }
+
     }
 };

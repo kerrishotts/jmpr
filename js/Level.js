@@ -3,7 +3,7 @@ const MS_IN_A_MINUTE = 60 * 1000;
 
 exports.Level = class Level {
     constructor(level, { blockSize = 200, stepSize = 25, drawDistance = 15,
-        bpm = 120, colors = [0xFF8020, 0x8020FF], beatIntensity = 0.33 } = {}) {
+        bpm = 120, colors = [0xFF8020, 0x8020FF], beatIntensity = 0.125 } = {}) {
         this.blockSize = blockSize;
         this.stepSize = stepSize;
         this.drawDistance = drawDistance;
@@ -35,44 +35,61 @@ exports.Level = class Level {
     startBeat() {
         this._timeLastBeat = performance.now();
     }
+    stopBeat() {
+        this._timeLastBeat = 0;
+    }
 
     _initBoxArray() {
         let blockSize = this.blockSize,
             drawDistance = this.drawDistance,
             level = this.level,
             _boxes = this._boxes;
-
+/*
         let srcMaterials = this.colors.map(v => new THREE.MeshLambertMaterial({
             color: v, wireframe: false
         }));
+        */
 
         let box = new THREE.BoxGeometry(blockSize, 100 * blockSize, blockSize, 1, 1, 1);
 
         for (let z = 0; z < drawDistance; z++) {
-            _boxes.push(level[0].map((_, idx) => new THREE.Mesh(box, srcMaterials[(z + idx) % (this.colors.length)])));
+            //_boxes.push(level.height[0].map((_, idx) => new THREE.Mesh(box, srcMaterials[(z + idx) % (this.colors.length)])));
+            _boxes.push(level.height[0].map((_, idx) => {
+                let material = new THREE.MeshLambertMaterial({
+                    color: this.colors[(z + idx) % this.colors.length],
+                    wireframe: false
+                });
+                return new THREE.Mesh(box, material)
+            }));
         }
     }
 
     _parseLevel(level) {
-        let parsedLevel = [];
+        let parsedLevel = {
+            flags: [],
+            height: [],
+        };
         for (let i = 0; i < level.length; i++) {
             let r = level[i];
             if (r instanceof Array) {
                 let rpt = r[1];
                 r = this._parseLevel([r[0]]);
                 for (let i = 0; i < rpt; i++) {
-                    parsedLevel.push(r[0]);
+                    parsedLevel.height.push(r.height[0]);
+                    parsedLevel.flags.push(r.flags[0]);
                 }
             } else {
-                r = r.split(" ").map(c => Number.isNaN(Number(c)) ? c : Number(c));
-                parsedLevel.push(r);
+                r = r.split(/(...)/).filter(i => i !== "");
+                parsedLevel.height.push(r.map(c => Number.isNaN(parseInt(c, 10)) ? undefined : parseInt(c, 10)));
+                parsedLevel.flags.push(r.map(c => c[2]));
             }
         }
+        parsedLevel.length = parsedLevel.height.length;
         return parsedLevel;
     }
 
     get description() {
-        return this.level.map(r => r.join(" ")).join(String.fromCharCode(10));
+        return this.level.height.map(r => r.join(" ")).join(String.fromCharCode(10));
     }
 
     makeScene() {
@@ -100,12 +117,14 @@ exports.Level = class Level {
         let maxVisibleRow = curRow + drawDistance - 1;
         let delta = curRow - this.curRow;
 
-        let now = performance.now();
-        let timeForBeat = this._timeLastBeat !== 0 ? (now - this._timeLastBeat) > this._msBetweenBeats : false;
-        let beatIntensity = this.beatIntensity,
+        let now = performance.now(),
+            timeLastBeat = this._timeLastBeat,
+            beatIntensity = this.beatIntensity,
             msBetweenBeats = this._msBetweenBeats,
+            colors = this.colors,
+            numColors = colors.length,
             timeSinceLastBeat = msBetweenBeats ? (now - this._timeLastBeat) % msBetweenBeats : 0,
-            colors = this.colors, numColors = colors.length;
+            timeForBeat = (timeLastBeat !== 0) ? ((now - this._timeLastBeat) > msBetweenBeats) : false;
 
 
         // move boxes as needed to the end of the level
@@ -118,12 +137,14 @@ exports.Level = class Level {
             }
 
             for (let z = force ? curRow : (maxVisibleRow - delta); z <= Math.min(level.length - 1, maxVisibleRow); z++) {
-                let r = level[z];
+                let r = level.height[z],
+                    flags = level.flags[z];
                 let offsetX = (r.length / 2) * blockSize - (blockSize / 2);
                 for (let x = r.length - 1; x > -1; x--) {
-                    let c = r[x];
-                    let mesh = _boxes[z - curRow][x];
-                    if (c !== "..") {
+                    let c = r[x],
+                        flag = flags[x] || " ",
+                        mesh = _boxes[z - curRow][x];
+                    if (c !== undefined) {
                         let h = c * stepSize;
                         mesh.visible = true;
                         mesh.position.set(x * blockSize - offsetX, -(halfHeight + offsetY) + h, -z * blockSize);
@@ -134,18 +155,36 @@ exports.Level = class Level {
             }
         }
 
-        if (msBetweenBeats > 0) {
+        if ((msBetweenBeats > 0) || force) {
+            // rotate our colors
+            if (timeForBeat) {
+                let tmpColor = colors.shift();
+                colors.push(tmpColor);
+            }
+
             // colors get change irrespective of adjusting visible boxes
             for (let z = curRow; z <= Math.min(level.length - 1, maxVisibleRow); z++) {
-                let r = level[z], dz = z - curRow, maxDistance = Math.sqrt(Math.pow(drawDistance, 2) + Math.pow(r.length - 1, 2));
+                let r = level.height[z],
+                    flags = level.flags[z],
+                    dz = z - curRow;
                 for (let x = r.length - 1; x > -1; x--) {
-                    let mesh = _boxes[dz][x];
-                    mesh.material.color.set(colors[(z + x) % numColors]);
-                    if (msBetweenBeats > 0) {
-                        var distanceFromZero = Math.sqrt(Math.pow(drawDistance - dz, 2) + (x * x));
-                        distanceFromZero = 1 / (distanceFromZero / maxDistance);
-                        var lOffset = ((1 - (timeSinceLastBeat / msBetweenBeats)) * beatIntensity); // * distanceFromZero;
-                        mesh.material.color.offsetHSL(0, 0, lOffset);
+                    let mesh = _boxes[dz][x],
+                        flag = flags[x] || " ",
+                        color;
+                    switch (flag) {
+                    case "!":
+                        color = 0xFF0000;
+                        break;
+                    case "^":
+                        color = 0x80FF00;
+                        break;
+                    default:
+                        color = colors[(z + x) % numColors];
+                    }
+                    mesh.material.color.set(color);
+                    if (msBetweenBeats > 0 && timeLastBeat > 0 && flag === " ") {
+                        var lOffset = (((timeSinceLastBeat / msBetweenBeats)) * beatIntensity);
+                        mesh.material.color.offsetHSL(0, 0, -lOffset);
                     }
                 }
             }
@@ -161,10 +200,10 @@ exports.Level = class Level {
 
     heightAtCoordinates(z, x) {
         let offsetY = 50 * this.stepSize;
-        let r = this.level[z];
+        let r = this.level.height[z];
         if (r) {
-            let c = parseInt(r[x], 10);
-            if (Number.isNaN(c)) {
+            let c = r[x];
+            if (c === undefined) {
                 return undefined;
             }
             let h = -offsetY + (c * this.stepSize);
@@ -174,50 +213,32 @@ exports.Level = class Level {
         }
     }
 
+    flagAtCoordinates(z, x) {
+        let r = this.level.flags[z];
+        if (r) {
+            let flag = r[x];
+            return flag;
+        } else {
+            return undefined;
+        }
+    }
+
+    flagAtPosition(position) {
+        let blockSize = this.blockSize;
+        let offsetX = (this.level.height[0].length / 2) * blockSize;
+
+        return this.flagAtCoordinates(Math.floor(-(position.z / blockSize) + 0.5), Math.floor((position.x + offsetX) / blockSize));
+    }
+
     heightAtPosition(position) {
         let blockSize = this.blockSize;
-        let offsetX = (this.level[0].length / 2) * blockSize; // - (blockSize / 2);
+        let offsetX = (this.level.height[0].length / 2) * blockSize;
 
         return this.heightAtCoordinates(Math.floor(-(position.z / blockSize) + 0.5), Math.floor((position.x + offsetX) / blockSize));
     }
 
     static createLevel(level, opts) {
         return new Level(level, opts);
-    }
-
-    static levelOne() {
-        return [
-            [".. 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ..", 25],
-            [".. 51 51 51 51 51 51 51 51 51 51 51 51 51 51 51 ..", 2],
-             ".. .. .. .. .. 99 99 52 52 52 99 99 .. .. .. .. ..",
-             ".. .. .. .. .. 99 99 53 53 53 99 99 .. .. 50 .. ..",
-             ".. .. 50 .. .. 99 99 54 54 54 99 99 .. .. 50 .. ..",
-             ".. .. 49 .. .. 99 99 55 55 55 99 99 .. .. 50 .. ..",
-             ".. .. 49 .. .. .. .. 56 56 56 .. .. .. .. 50 .. ..",
-             ".. .. 50 .. .. .. .. 57 57 57 .. .. .. .. 50 .. ..",
-             ".. .. .. .. .. .. .. 58 .. 58 .. .. .. .. 70 .. ..",
-             ".. .. .. .. .. .. .. 59 50 59 .. .. .. .. 70 .. ..",
-             ".. .. 50 .. .. .. .. 60 50 60 .. .. .. .. 70 .. ..",
-            [".. .. 50 .. .. .. .. .. 50 .. .. .. .. .. 90 .. ..", 2],
-             ".. .. .. .. .. .. .. .. .. .. .. 70 .. .. 90 .. ..",
-            [".. .. 50 .. .. .. .. .. 50 .. .. .. .. .. 90 .. ..", 25],
-             ".. .. .. .. .. .. .. .. .. .. .. .. .. 90 .. .. ..",
-             ".. .. .. .. .. .. .. 50 .. .. .. .. 80 .. .. .. ..",
-             ".. .. 50 .. .. .. .. 50 .. .. .. 70 .. .. .. .. ..",
-             ".. .. 50 50 .. .. .. 50 .. .. 60 .. .. .. .. .. ..",
-             ".. 50 50 50 50 .. .. .. .. .. .. .. 50 .. .. .. ..",
-             "50 50 .. .. 50 50 .. .. 50 .. .. .. 50 .. .. .. ..",
-             "50 .. .. .. .. 50 50 .. 50 .. .. .. 50 .. .. .. ..",
-             ".. .. .. .. .. .. 50 50 50 .. .. .. 50 .. .. .. ..",
-             "50 .. .. .. .. .. .. 50 .. .. .. .. 50 .. .. .. ..",
-             ".. .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. ..",
-             "50 .. .. .. .. .. .. .. .. 50 .. .. .. .. .. .. ..",
-             ".. .. .. .. .. .. .. .. .. 50 .. .. 50 .. .. .. ..",
-             "50 .. .. .. .. .. .. .. 50 50 .. .. .. .. .. .. ..",
-            [".. .. .. .. .. .. .. .. 50 .. .. .. 50 .. .. .. ..", 2],
-            ["50 .. .. .. .. .. .. 50 50 .. .. .. 50 .. .. .. ..", 3],
-            [".. .. .. .. .. .. .. 50 50 .. .. .. 50 .. .. .. ..", 3],
-        ];
     }
 
 };
