@@ -1,5 +1,6 @@
 /* globals exports, require, THREE */
 const MS_IN_A_MINUTE = 60 * 1000;
+var textures = require("./textures");
 
 exports.Level = class Level {
     constructor(level, { blockSize = 200, stepSize = 25, drawDistance = 15,
@@ -59,6 +60,7 @@ exports.Level = class Level {
                     color: this.colors[(z + idx) % this.colors.length],
                     wireframe: false
                 });
+                material.needsUpdate = true;
                 return new THREE.Mesh(box, material)
             }));
         }
@@ -122,7 +124,6 @@ exports.Level = class Level {
             beatIntensity = this.beatIntensity,
             msBetweenBeats = this._msBetweenBeats,
             colors = this.colors,
-            numColors = colors.length,
             timeSinceLastBeat = msBetweenBeats ? (now - this._timeLastBeat) % msBetweenBeats : 0,
             timeForBeat = (timeLastBeat !== 0) ? ((now - this._timeLastBeat) > msBetweenBeats) : false;
 
@@ -148,6 +149,13 @@ exports.Level = class Level {
                         let h = c * stepSize;
                         mesh.visible = true;
                         mesh.position.set(x * blockSize - offsetX, -(halfHeight + offsetY) + h, -z * blockSize);
+                        let curMesh = mesh.material.map;
+                        if (flag !== " ") {
+                            mesh.material.map = textures[flag];
+                        } else {
+                            mesh.material.map = null;
+                        }
+                        mesh.material.needsUpdate = mesh.material.map !== curMesh;
                     } else {
                         mesh.visible = false;
                     }
@@ -170,17 +178,30 @@ exports.Level = class Level {
                 for (let x = r.length - 1; x > -1; x--) {
                     let mesh = _boxes[dz][x],
                         flag = flags[x] || " ",
-                        color;
+                        colorPicks;
                     switch (flag) {
                     case "!":
-                        color = 0xFF0000;
+                        colorPicks = [0xFF0000, 0xE00000];
+                        break;
+                    case "+":
+                        colorPicks = [0xFFFF00, 0xE0E000];
                         break;
                     case "^":
-                        color = 0x80FF00;
+                        colorPicks = [0x8000FF, 0x7000E0];
+                        break;
+                    case ">":
+                        colorPicks = [0x80FF00, 0x70E000];
+                        break;
+                    case "<":
+                        colorPicks = [0x808040, 0x707038];
+                        break;
+                    case "_":
+                        colorPicks = [0xAA7849, 0x8A5839];
                         break;
                     default:
-                        color = colors[(z + x) % numColors];
+                        colorPicks = colors;
                     }
+                    let color = colorPicks[(z + x) % colorPicks.length];
                     mesh.material.color.set(color);
                     if (msBetweenBeats > 0 && timeLastBeat > 0 && flag === " ") {
                         var lOffset = (((timeSinceLastBeat / msBetweenBeats)) * beatIntensity);

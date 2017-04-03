@@ -8,8 +8,11 @@ exports.Game = class Game {
     constructor(controllers) {
         this.camera = undefined;
         this.scene = undefined;
+
         this.sound = undefined;
         this.audioLoader = undefined;
+        this.musicStartPoints = [0];
+
         this.renderer = undefined;
         this.paused = false;
         this.waitingForInteraction = true;
@@ -25,7 +28,8 @@ exports.Game = class Game {
             level = levels[normalizedLevel];
         this.level = Level.createLevel(level, level.options);
         if (level.options.music) {
-            this.audioLoader.load(`music/${level.options.music}`, buffer => {
+            this.audioLoader.load(`music/${level.options.music.file}`, buffer => {
+                this.musicStartPoints = level.options.music.startPoints;
                 let sound = this.sound;
                 sound.setBuffer(buffer);
                 sound.setLoop(true);
@@ -40,7 +44,7 @@ exports.Game = class Game {
             level: this.level,
             restitution: 0,
             position: new THREE.Vector3(0, 200, 1500),
-            velocity: new THREE.Vector3(0, 0, 15)
+            velocity: new THREE.Vector3(0, 0, 25)
         });
 
         this._bob = 0;
@@ -51,20 +55,43 @@ exports.Game = class Game {
 
     pause() {
         this.paused = true;
+        this.pauseMusic();
+    }
+
+    resume() {
+        this.resumeMusic();
+        this.paused = false;
+        this.fps.reset();
+        //requestAnimationFrame(t => this.animate(t));
+    }
+
+    startMusic() {
+        if (this.sound) {
+            this.hasTriggeredPlayback = true;
+            this.sound.startTime = this.musicStartPoints[Math.floor(Math.random() * this.musicStartPoints.length)];
+            this.sound.play();
+            this.level.startBeat();
+        }
+    }
+
+    pauseMusic() {
         if (this.sound && this.sound.isPlaying) {
             this.sound.pause();
             this.level.stopBeat();
         }
     }
 
-    resume() {
+    resumeMusic() {
         if (this.sound && this.sound.isPlaying) {
-            this.sound.play();
-            this.level.startBeat();
+            this.startMusic();
         }
-        this.paused = false;
-        this.fps.reset();
-        //requestAnimationFrame(t => this.animate(t));
+    }
+
+    stopMusic() {
+        if (this.sound) {
+            this.sound.stop();
+        }
+        this.level.stopBeat();
     }
 
     init() {
@@ -86,14 +113,14 @@ exports.Game = class Game {
 
         document.body.appendChild(this.renderer.domElement);
 
-        document.addEventListener("resize", evt => this.onResize(evt));
+        window.addEventListener("resize", evt => this.onResize(evt));
 
         document.addEventListener("touchend", evt => this.onTouchEnd(evt));
 
     }
 
     onTouchEnd(evt) {
-        if (!this.hasTriggeredPlayback) {
+        if (!this.hasTriggeredPlayback && this.sound && !this.sound.isPlaying) {
             if (this.sound) {
                 this.sound.play();
                 this.sound.stop();
@@ -103,11 +130,17 @@ exports.Game = class Game {
     }
 
     onResize(evt) {
-        let camera = this.camera,
-            renderer = this.renderer;
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        if (this._resizeTimer) {
+            clearTimeout(this._resizeTimer);
+        }
+        this._resizeTimer = setTimeout(() => {
+            this._resizeTimer = null;
+            let camera = this.camera,
+                renderer = this.renderer;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }, 250);
     }
 
     update(t, d) {
@@ -152,13 +185,13 @@ exports.Game = class Game {
         }
         player.crouch = false;
         if (down && player.grounded) {
-            player.velocity.y /= 4;
-            player.velocity.z = Math.min(50, player.velocity.z + 0.5);
+            //player.velocity.y /= 4;
+            //player.velocity.z = Math.min(50, player.velocity.z + 1.5);
             player.crouch = true;
         } else {
-            if (player.velocity.z > 15) {
+            /*if (player.velocity.z > 15) {
                 player.velocity.z -= 1;
-            }
+            }*/
         }
 
 
@@ -186,19 +219,17 @@ exports.Game = class Game {
         }
 
         if (player.position.z < 0 && sound && !sound.isPlaying) {
-            sound.play();
-            level.startBeat();
+            this.startMusic();
         }
 
         // detect if at end of level so we can restart
         if (player.dead || player.position.z < -(level.level.length * level.blockSize)) {
             if (sound && sound.isPlaying) {
-                sound.stop();
-                level.stopBeat();
+                this.stopMusic();
             }
             d = 0;
             player.position.set(0, 200, 1500);
-            player.velocity.set(0, 0, 15);
+            player.velocity.set(0, 0, 25);
             player._bob = 0;
             force = true;
             this.waitingForInteraction = true;
@@ -223,6 +254,10 @@ exports.Game = class Game {
         if (Math.abs(camera.quaternion.z) != Math.abs(pvx)) {
             camera.quaternion.z -= (camera.quaternion.z - pvx) / 3;
         }
+
+        // calculate fov
+        camera.fov = Math.min(112.5 + (player.velocity.z / 2), 160);
+        camera.updateProjectionMatrix();
 
         // refresh level rendering
         level.updateScene(player.position.z, { force });
