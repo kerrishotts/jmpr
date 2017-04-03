@@ -9,7 +9,10 @@ exports.Player = class Player {
                   radius = 15,
                   restitution = 0.7,
                   density = 1.22,
-                  gravity = 9.81
+                  gravity = 9.81,
+                  targetForwardVelocity = 25,
+                  maxForwardVelocity = 100,
+                  minForwardVelocity = 5
       } = {}) {
         this.cd = 0.47;
         this.density = density.copy;
@@ -18,6 +21,9 @@ exports.Player = class Player {
         this.restitution = restitution;
         this.gravity = gravity;
         this.level = level;
+        this.targetForwardVelocity = targetForwardVelocity;
+        this.maxForwardVelocity = maxForwardVelocity;
+        this.minForwardVelocity = minForwardVelocity;
 
         this.position = position.clone();
         this.velocity = velocity.clone();
@@ -37,7 +43,8 @@ exports.Player = class Player {
             velocity = this.velocity,
             gravity = this.gravity,
             level = this.level,
-            A = Math.PI * (radius * radius);
+            A = Math.PI * (radius * radius),
+            targetForwardVelocity = this.targetForwardVelocity;
         for (let i = 0, v = velocity.getComponent(i); i < 3; i++) {
             v = -0.5 * cd * A * rho * (v * v * v) / Math.abs(v);
             v = isNaN(v) ? 0 : v;
@@ -71,7 +78,7 @@ exports.Player = class Player {
         let neededHeight = level.heightAtPosition(position);
         let flag = level.flagAtPosition(position);
 
-        if (neededHeight !== "undefined") {
+        if (neededHeight !== undefined) {
             neededHeight += 200;
         } else {
             neededHeight = -(level.blockSize * 200);
@@ -88,14 +95,48 @@ exports.Player = class Player {
             this.grounded = true;
         }
 
-        if (position.y < -(level.blockSize * 200)) {
+        if (position.y < -((level.blockSize * 200) * 2)) {
             this.dead = true;
             this.grounded = false;
         }
 
-        if (flag === "^" && this.grounded) {
-            velocity.y -= 115;
+        if (velocity.z !== targetForwardVelocity) {
+            if (velocity.z < targetForwardVelocity) {
+                velocity.z += 5;
+                if (velocity.z > targetForwardVelocity) {
+                    velocity.z = targetForwardVelocity;
+                }
+            } else {
+                velocity.z -= 2.5;
+                if (velocity.z < targetForwardVelocity) {
+                    velocity.z = targetForwardVelocity;
+                }
+            }
         }
 
+        // process flags
+        if (this.grounded) {
+            switch (flag) {
+            case "^":
+                velocity.y -= 115;
+                break;
+            case ">":
+                velocity.z += 10;
+                break;
+            case "_":
+                velocity.z -= 10;
+                break;
+            case "<":
+                velocity.z = Math.max(targetForwardVelocity, velocity.z - 10);
+                break;
+            default:
+            }
+        }
+
+        if (velocity.z > this.maxForwardVelocity) {
+            velocity.z = this.maxForwardVelocity;
+        } else if (velocity.z < this.minForwardVelocity) {
+            velocity.z = this.minForwardVelocity;
+        }
     }
 };
