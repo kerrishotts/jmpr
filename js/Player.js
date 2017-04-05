@@ -12,7 +12,8 @@ exports.Player = class Player {
                   gravity = 9.81,
                   targetForwardVelocity = 25,
                   maxForwardVelocity = 100,
-                  minForwardVelocity = 5
+                  minForwardVelocity = 5,
+                  immortal = false
       } = {}) {
         this.cd = 0.47;
         this.density = density.copy;
@@ -20,7 +21,11 @@ exports.Player = class Player {
         this.radius = radius;
         this.restitution = restitution;
         this.gravity = gravity;
+
+        this.immortal = immortal;
+
         this.level = level;
+
         this.targetForwardVelocity = targetForwardVelocity;
         this.maxForwardVelocity = maxForwardVelocity;
         this.minForwardVelocity = minForwardVelocity;
@@ -44,7 +49,11 @@ exports.Player = class Player {
             gravity = this.gravity,
             level = this.level,
             A = Math.PI * (radius * radius),
-            targetForwardVelocity = this.targetForwardVelocity;
+            targetForwardVelocity = this.targetForwardVelocity,
+            startingHeight = position.y,
+            startingPlummet = velocity.y,
+            immortal = this.immortal;
+
         for (let i = 0, v = velocity.getComponent(i); i < 3; i++) {
             v = -0.5 * cd * A * rho * (v * v * v) / Math.abs(v);
             v = isNaN(v) ? 0 : v;
@@ -53,7 +62,7 @@ exports.Player = class Player {
             switch (i) {
             case 1: // y
                 if (position.z < 0) {
-                    v = gravity + (v / mass);
+                    v = (immortal ? 0 : gravity) + (v / mass);
                     break;
                 }
             case 2: // z
@@ -76,27 +85,52 @@ exports.Player = class Player {
         }
 
         let neededHeight = level.heightAtPosition(position);
+        let ceilingHeight = level.ceilingAtPosition(position);
         let flag = level.flagAtPosition(position);
 
         if (neededHeight !== undefined) {
             neededHeight += 200;
-        } else {
-            neededHeight = -(level.blockSize * 200);
+        }
+        if (ceilingHeight !== undefined) {
+            ceilingHeight -= 0;
         }
 
-        if ((neededHeight !== "undefined") && (position.y <= neededHeight)) {
-            let distance = neededHeight - position.y;
-            if (distance > level.blockSize) {
-                this.dead = true;
+        if (neededHeight !== undefined) {
+            if (startingHeight > neededHeight && startingPlummet > 0) {
+                // started out /above/ the floor, and was falling
+                if (position.y < neededHeight) {
+                    position.y = neededHeight; // can't fall /through/ the floor
+                }
+            }
+
+            if (ceilingHeight && (startingHeight < ceilingHeight) && (startingPlummet < 0)) {
+                // lower than the ceiling, and going up
+                if (position.y > ceilingHeight) {
+                    position.y = ceilingHeight; // can't jump through the ceiling
+                    velocity.y = 0;
+                }
+            }
+
+            if (position.y <= neededHeight) {
+                let distance = neededHeight - position.y;
+                if (distance > level.blockSize) {
+                    this.dead = !this.immortal && true;
+                    return;
+                }
+                velocity.y = (-(Math.abs(velocity.y) * this.restitution));
+                position.y += (distance / 3) * delta;
+                this.grounded = true;
+            }
+
+            if (ceilingHeight && (position.y > ceilingHeight)) {
+                // fell into a ceiling piece
+                this.dead = !this.immortal && true;
                 return;
             }
-            velocity.y = (-(Math.abs(velocity.y) * this.restitution));
-            position.y += (distance / 3) * delta;
-            this.grounded = true;
         }
 
         if (position.y < -((level.blockSize * 200) * 2)) {
-            this.dead = true;
+            this.dead = !this.immortal && true;
             this.grounded = false;
         }
 
