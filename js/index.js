@@ -7,5 +7,5 @@ const ControllerCollection = require("./ControllerCollection");
 let kbd = new KeyboardController();
 let touch = new TouchController();
 let controllers = new ControllerCollection([kbd, touch]);
-let game = new Game(controllers);
+let game = new Game({ controllers });
 game.start();
