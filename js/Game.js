@@ -5,22 +5,33 @@ var FPS = require("./FPS"),
     levels = require("./levels");
 
 exports.Game = class Game {
-    constructor(controllers) {
+    constructor({ controllers, initialState = "demo" } = {}) {
+        this.state = initialState;
+
         this.camera = undefined;
         this.scene = undefined;
+        this.renderer = undefined;
 
         this.sound = undefined;
         this.audioLoader = undefined;
         this.musicStartPoints = [0];
 
-        this.renderer = undefined;
         this.paused = false;
-        this.waitingForInteraction = true;
+        this.waitingForInteraction = this.inGameMode;
+
         this.controllers = controllers;
 
         this.fps = new FPS({ fancy: false });
 
         this.init();
+    }
+
+    get inDemoMode() {
+        return this.state === "demo";
+    }
+
+    get inGameMode() {
+        return this.state !== "demo";
     }
 
     start(atLevel = 1) {
@@ -41,6 +52,7 @@ exports.Game = class Game {
         this.scene.fog = new THREE.FogExp2(0x000000, 0.00066);
 
         this.player = new Player({
+            immortal: this.inDemoMode,
             level: this.level,
             restitution: 0,
             position: new THREE.Vector3(0, 200, 1500),
@@ -143,6 +155,30 @@ exports.Game = class Game {
         }, 250);
     }
 
+    resetLevel(state) {
+        let player = this.player,
+            sound = this.sound;
+
+        if (sound && sound.isPlaying) {
+            this.stopMusic();
+        }
+
+        this.state = state || this.state;
+
+        player.immortal = this.inDemoMode;  // player becomes immortal if in demo
+
+        player.position.set(0, 200, 1500);  // beginning of the level
+        player.velocity.set(0, 0, 25);      // initial velocity
+        player.grounded = false;
+        player._bob = 0;                    // reset bobbing
+        this.waitingForInteraction = this.inGameMode;
+                                            // wait for interaction to start if in game
+        this.pause();                       // pause game
+        if (player.dead) {
+            player.dead = false;            // player lives!
+        }
+    }
+
     update(t, d) {
         let delta = 1, //d / (1000 / 60),
             player = this.player,
@@ -157,6 +193,9 @@ exports.Game = class Game {
 
         if (up || down || left || right) {
             this.waitingForInteraction = false;
+            if (this.inDemoMode) {
+                this.resetLevel("game");
+            }
         }
 
         if (pause) {
@@ -204,7 +243,9 @@ exports.Game = class Game {
             level = this.level,
             sound = this.sound,
             renderer = this.renderer,
-            player = this.player;
+            player = this.player,
+            inDemo = this.inDemoMode,
+            inGame = this.inGameMode;
 
         requestAnimationFrame(t => this.animate(t));
 
@@ -218,24 +259,17 @@ exports.Game = class Game {
             return;
         }
 
-        if (player.position.z < 0 && sound && !sound.isPlaying) {
+        if (player.position.z < 0 && sound && !sound.isPlaying && inGame) {
             this.startMusic();
         }
 
         // detect if at end of level so we can restart
         if (player.dead || player.position.z < -(level.level.length * level.blockSize)) {
-            if (sound && sound.isPlaying) {
-                this.stopMusic();
-            }
+            let playerWasDead = player.dead;
+            this.resetLevel(player.dead ? "game" : this.state);
             d = 0;
-            player.position.set(0, 200, 1500);
-            player.velocity.set(0, 0, 25);
-            player._bob = 0;
             force = true;
-            this.waitingForInteraction = true;
-            this.pause();
-            if (player.dead) {
-                player.dead = false;
+            if (playerWasDead) {
                 level.updateScene(player.position.z, { force });
                 return;
             }
@@ -243,21 +277,29 @@ exports.Game = class Game {
 
         player.applyPhysics(d);
         camera.position.copy(this.player.position);
-        camera.position.y -= (player.crouch ? 100 : 0);
-        // camera bob
-        if (player.grounded) {
-            this._bob += 16;
-            camera.position.x += Math.cos((this._bob / 3) * (Math.PI / 180)) * 10;
-            camera.position.y += Math.abs(Math.sin((this._bob / 2) * (Math.PI / 180)) * 10);
-        }
-        let pvx = (player.velocity.x / 4) * (Math.PI / 180);
-        if (Math.abs(camera.quaternion.z) != Math.abs(pvx)) {
-            camera.quaternion.z -= (camera.quaternion.z - pvx) / 3;
-        }
 
-        // calculate fov
-        camera.fov = Math.min(112.5 + (player.velocity.z / 2), 160);
-        camera.updateProjectionMatrix();
+        if (inGame) {
+            camera.position.y -= (player.crouch ? 100 : 0);
+            // camera bob
+            if (player.grounded) {
+                this._bob += 16;
+                camera.position.x += Math.cos((this._bob / 3) * (Math.PI / 180)) * 10;
+                camera.position.y += Math.abs(Math.sin((this._bob / 2) * (Math.PI / 180)) * 10);
+            }
+            let pvx = (player.velocity.x / 4) * (Math.PI / 180);
+            if (Math.abs(camera.quaternion.z) != Math.abs(pvx)) {
+                camera.quaternion.z -= (camera.quaternion.z - pvx) / 3;
+            }
+            camera.quaternion.x = 0;
+
+            // calculate fov
+            camera.fov = Math.min(112.5 + (player.velocity.z / 2), 160);
+            camera.updateProjectionMatrix();
+        } else {
+            //camera.position.z -= 1000;
+            camera.position.y += 400;
+            camera.quaternion.x = -0.25;
+        }
 
         // refresh level rendering
         level.updateScene(player.position.z, { force });
