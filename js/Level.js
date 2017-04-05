@@ -1,5 +1,8 @@
 /* globals exports, require, THREE */
 const MS_IN_A_MINUTE = 60 * 1000;
+const MAX_STEPS = 256;
+const HALF_MAX_STEPS = 128;
+
 var textures = require("./textures");
 
 exports.Level = class Level {
@@ -20,7 +23,8 @@ exports.Level = class Level {
         this.colors = colors;
         this.beatIntensity = beatIntensity;
 
-        this._boxes = [];
+        this._floor = [];
+        this._ceiling = [];
         this._initBoxArray();
     }
 
@@ -42,27 +46,25 @@ exports.Level = class Level {
 
     _initBoxArray() {
         let blockSize = this.blockSize,
+            stepSize = this.stepSize,
             drawDistance = this.drawDistance,
             level = this.level,
-            _boxes = this._boxes;
-/*
-        let srcMaterials = this.colors.map(v => new THREE.MeshLambertMaterial({
-            color: v, wireframe: false
-        }));
-        */
+            _floor = this._floor,
+            _ceiling = this._ceiling;
 
-        let box = new THREE.BoxGeometry(blockSize, 100 * blockSize, blockSize, 1, 1, 1);
+        let box = new THREE.BoxGeometry(blockSize, MAX_STEPS * stepSize, blockSize, 1, 1, 1);
 
         for (let z = 0; z < drawDistance; z++) {
-            //_boxes.push(level.height[0].map((_, idx) => new THREE.Mesh(box, srcMaterials[(z + idx) % (this.colors.length)])));
-            _boxes.push(level.height[0].map((_, idx) => {
-                let material = new THREE.MeshLambertMaterial({
-                    color: this.colors[(z + idx) % this.colors.length],
-                    wireframe: false
-                });
-                material.needsUpdate = true;
-                return new THREE.Mesh(box, material)
-            }));
+            [_floor, _ceiling].forEach(arr => {
+                arr.push(level.height[0].map((_, idx) => {
+                    let material = new THREE.MeshLambertMaterial({
+                        color: this.colors[(z + idx) % this.colors.length],
+                        wireframe: false
+                    });
+                    material.needsUpdate = true;
+                    return new THREE.Mesh(box, material)
+                }));
+            })
         }
     }
 
@@ -82,7 +84,7 @@ exports.Level = class Level {
                 }
             } else {
                 r = r.split(/(...)/).filter(i => i !== "");
-                parsedLevel.height.push(r.map(c => Number.isNaN(parseInt(c, 10)) ? undefined : parseInt(c, 10)));
+                parsedLevel.height.push(r.map(c => Number.isNaN(parseInt(c.substr(0, 2), 16)) ? undefined : parseInt(c.substr(0, 2), 16)));
                 parsedLevel.flags.push(r.map(c => c[2]));
             }
         }
@@ -98,7 +100,8 @@ exports.Level = class Level {
         let scene = new THREE.Scene();
 
         this.updateScene(0, { force: true });
-        this._boxes.forEach(z => z.forEach(mesh => scene.add(mesh)));
+        this._floor.forEach(z => z.forEach(mesh => scene.add(mesh)));
+        this._ceiling.forEach(z => z.forEach(mesh => scene.add(mesh)));
 
         let hLight = new THREE.HemisphereLight(0xFFFFFF, 0x000000, 1);
         scene.add(hLight);
@@ -112,8 +115,12 @@ exports.Level = class Level {
     }
 
     updateScene(cameraZ, { force = false } = {}) {
-        let stepSize = this.stepSize, blockSize = this.blockSize, level = this.level,
-            drawDistance = this.drawDistance, _boxes = this._boxes;
+        let stepSize = this.stepSize,
+            blockSize = this.blockSize,
+            level = this.level,
+            drawDistance = this.drawDistance,
+            _floor = this._floor,
+            _ceiling = this._ceiling;
 
         let curRow = Math.max(Math.floor(-(cameraZ) / blockSize), 0);
         let maxVisibleRow = curRow + drawDistance - 1;
@@ -128,13 +135,15 @@ exports.Level = class Level {
             timeForBeat = (timeLastBeat !== 0) ? ((now - this._timeLastBeat) > msBetweenBeats) : false;
 
 
-        // move boxes as needed to the end of the level
+        // move floor as needed to the end of the level
         if (force || delta > 0) {
-            let offsetY = 50 * stepSize, halfHeight = 50 * blockSize;
+            let offsetY = HALF_MAX_STEPS * stepSize, halfHeight = HALF_MAX_STEPS * stepSize;
 
             for (let i = 0; i < delta; i++) {
-                let row = _boxes.shift();
-                _boxes.push(row);
+                let row = _floor.shift();
+                _floor.push(row);
+                row = _ceiling.shift();
+                _ceiling.push(row);
             }
 
             for (let z = force ? curRow : (maxVisibleRow - delta); z <= Math.min(level.length - 1, maxVisibleRow); z++) {
@@ -144,20 +153,27 @@ exports.Level = class Level {
                 for (let x = r.length - 1; x > -1; x--) {
                     let c = r[x],
                         flag = flags[x] || " ",
-                        mesh = _boxes[z - curRow][x];
+                        floor = _floor[z - curRow][x],
+                        ceiling = _ceiling[z - curRow][x];
                     if (c !== undefined) {
                         let h = c * stepSize;
-                        mesh.visible = true;
-                        mesh.position.set(x * blockSize - offsetX, -(halfHeight + offsetY) + h, -z * blockSize);
-                        let curMesh = mesh.material.map;
-                        if (flag !== " ") {
-                            mesh.material.map = textures[flag];
+                        floor.visible = true;
+                        ceiling.visible = false;
+                        floor.position.set(x * blockSize - offsetX, -(halfHeight + offsetY) + h, -z * blockSize);
+                        let curMesh = floor.material.map;
+                        if (flag !== " " && textures[flag]) {
+                            floor.material.map = textures[flag];
                         } else {
-                            mesh.material.map = null;
+                            floor.material.map = null;
                         }
-                        mesh.material.needsUpdate = mesh.material.map !== curMesh;
+                        if (!Number.isNaN(parseInt(flag, 16))) {
+                            ceiling.position.set(x * blockSize - offsetX, h + parseInt(flag, 16) * blockSize, -z * blockSize);
+                            ceiling.visible = true;
+                        }
+                        floor.material.needsUpdate = true; //floor.material.map !== curMesh;
                     } else {
-                        mesh.visible = false;
+                        ceiling.visible = false;
+                        floor.visible = false;
                     }
                 }
             }
@@ -170,20 +186,21 @@ exports.Level = class Level {
                 colors.push(tmpColor);
             }
 
-            // colors get change irrespective of adjusting visible boxes
+            // colors get change irrespective of adjusting visible floor
             for (let z = curRow; z <= Math.min(level.length - 1, maxVisibleRow); z++) {
                 let r = level.height[z],
                     flags = level.flags[z],
                     dz = z - curRow;
                 for (let x = r.length - 1; x > -1; x--) {
-                    let mesh = _boxes[dz][x],
+                    let floor = _floor[dz][x],
+                        ceiling = _ceiling[dz][x],
                         flag = flags[x] || " ",
                         colorPicks;
                     switch (flag) {
-                    case "!":
+                    case "X":
                         colorPicks = [0xFF0000, 0xE00000];
                         break;
-                    case "+":
+                    case "!":
                         colorPicks = [0xFFFF00, 0xE0E000];
                         break;
                     case "^":
@@ -199,13 +216,16 @@ exports.Level = class Level {
                         colorPicks = [0xAA7849, 0x8A5839];
                         break;
                     default:
+                        flag = " "; // let the color change
                         colorPicks = colors;
                     }
                     let color = colorPicks[(z + x) % colorPicks.length];
-                    mesh.material.color.set(color);
+                    floor.material.color.set(color);
+                    ceiling.material.color.set(color);
                     if (msBetweenBeats > 0 && timeLastBeat > 0 && flag === " ") {
                         var lOffset = (((timeSinceLastBeat / msBetweenBeats)) * beatIntensity);
-                        mesh.material.color.offsetHSL(0, 0, -lOffset);
+                        floor.material.color.offsetHSL(0, 0, -lOffset);
+                        ceiling.material.color.offsetHSL(0, 0, -lOffset);
                     }
                 }
             }
@@ -220,7 +240,7 @@ exports.Level = class Level {
     }
 
     heightAtCoordinates(z, x) {
-        let offsetY = 50 * this.stepSize;
+        let offsetY = HALF_MAX_STEPS * this.stepSize;
         let r = this.level.height[z];
         if (r) {
             let c = r[x];
@@ -244,18 +264,39 @@ exports.Level = class Level {
         }
     }
 
+    ceilingAtCoordinates(z, x) {
+        let r = this.level.height[z],
+            flags = this.level.flags[z];
+        if (r && flags) {
+            let ceiling = parseInt(flags[x], 16);
+            if (!Number.isNaN(ceiling)) {
+                let c = r[x];
+                if (c === undefined) {
+                    return undefined;
+                }
+                let h = (ceiling * this.blockSize);
+                return h;
+            }
+        }
+        return undefined;
+    }
+
     flagAtPosition(position) {
         let blockSize = this.blockSize;
         let offsetX = (this.level.height[0].length / 2) * blockSize;
-
         return this.flagAtCoordinates(Math.floor(-(position.z / blockSize) + 0.5), Math.floor((position.x + offsetX) / blockSize));
     }
 
     heightAtPosition(position) {
         let blockSize = this.blockSize;
         let offsetX = (this.level.height[0].length / 2) * blockSize;
-
         return this.heightAtCoordinates(Math.floor(-(position.z / blockSize) + 0.5), Math.floor((position.x + offsetX) / blockSize));
+    }
+
+    ceilingAtPosition(position) {
+        let blockSize = this.blockSize;
+        let offsetX = (this.level.height[0].length / 2) * blockSize;
+        return this.ceilingAtCoordinates(Math.floor(-(position.z / blockSize) + 0.5), Math.floor((position.x + offsetX) / blockSize));
     }
 
     static createLevel(level, opts) {
@@ -263,3 +304,6 @@ exports.Level = class Level {
     }
 
 };
+
+exports.Level.MAX_STEPS = MAX_STEPS;
+exports.Level.HALF_MAX_STEPS = HALF_MAX_STEPS;
