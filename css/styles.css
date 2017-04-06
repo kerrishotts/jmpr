@@ -11,7 +11,7 @@ body {
 }
 
 .fps {
-    display: none;
+    display: block;
     position: absolute;
     top: 0;
     right: 0;
@@ -90,6 +90,7 @@ body {
 }
 
 .down {
+    display: none;
     right: 44px;
     bottom: 44px;
 }
