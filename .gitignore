@@ -39,3 +39,4 @@ jspm_packages
 
 # ignore music for now
 music/*.mp3
+.vscode
