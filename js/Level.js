@@ -106,6 +106,9 @@ exports.Level = class Level {
         let hLight = new THREE.HemisphereLight(0xFFFFFF, 0x000000, 1);
         scene.add(hLight);
 
+        let aLight = new THREE.AmbientLight(0x404040);
+        scene.add(aLight);
+
         let dLight = new THREE.DirectionalLight(0xFFFFFF, 0.25);
         dLight.position.set(0, 10, 3);
         scene.add(dLight);
@@ -160,7 +163,6 @@ exports.Level = class Level {
                         floor.visible = true;
                         ceiling.visible = false;
                         floor.position.set(x * blockSize - offsetX, -(halfHeight + offsetY) + h, -z * blockSize);
-                        let curMesh = floor.material.map;
                         if (flag !== " " && textures[flag]) {
                             floor.material.map = textures[flag];
                         } else {
@@ -170,7 +172,7 @@ exports.Level = class Level {
                             ceiling.position.set(x * blockSize - offsetX, h + parseInt(flag, 16) * blockSize, -z * blockSize);
                             ceiling.visible = true;
                         }
-                        floor.material.needsUpdate = true; //floor.material.map !== curMesh;
+                        floor.material.needsUpdate = true;
                     } else {
                         ceiling.visible = false;
                         floor.visible = false;
@@ -222,11 +224,16 @@ exports.Level = class Level {
                     let color = colorPicks[(z + x) % colorPicks.length];
                     floor.material.color.set(color);
                     ceiling.material.color.set(color);
-                    if (msBetweenBeats > 0 && timeLastBeat > 0 && flag === " ") {
-                        var lOffset = (((timeSinceLastBeat / msBetweenBeats)) * beatIntensity);
-                        floor.material.color.offsetHSL(0, 0, -lOffset);
-                        ceiling.material.color.offsetHSL(0, 0, -lOffset);
-                    }
+                    /*if (msBetweenBeats > 0 && timeLastBeat > 0 && flag === " ") {
+                        var lOffset = 0.90 - (((timeSinceLastBeat / msBetweenBeats)));
+                        var r = floor.material.color.r,
+                            g = floor.material.color.g,
+                            b = floor.material.color.b;
+                        floor.material.color.setRGB(Math.max(lOffset, r), Math.max(lOffset, g), Math.max(lOffset, b));
+                        ceiling.material.color.copy(floor.material.color);
+                        //floor.material.color.offsetHSL(0, 0, -lOffset);
+                        //ceiling.material.color.offsetHSL(0, 0, -lOffset);
+                    }*/
                 }
             }
         }
@@ -281,22 +288,22 @@ exports.Level = class Level {
         return undefined;
     }
 
-    flagAtPosition(position) {
+    _propertyAtPosition(position, fn) {
         let blockSize = this.blockSize;
         let offsetX = (this.level.height[0].length / 2) * blockSize;
-        return this.flagAtCoordinates(Math.floor(-(position.z / blockSize) + 0.5), Math.floor((position.x + offsetX) / blockSize));
+        return fn(Math.floor(-(position.z / blockSize) + 0.5), Math.floor((position.x + offsetX) / blockSize));
+    }
+
+    flagAtPosition(position) {
+        return this._propertyAtPosition(position, this.flagAtCoordinates.bind(this));
     }
 
     heightAtPosition(position) {
-        let blockSize = this.blockSize;
-        let offsetX = (this.level.height[0].length / 2) * blockSize;
-        return this.heightAtCoordinates(Math.floor(-(position.z / blockSize) + 0.5), Math.floor((position.x + offsetX) / blockSize));
+        return this._propertyAtPosition(position, this.heightAtCoordinates.bind(this));
     }
 
     ceilingAtPosition(position) {
-        let blockSize = this.blockSize;
-        let offsetX = (this.level.height[0].length / 2) * blockSize;
-        return this.ceilingAtCoordinates(Math.floor(-(position.z / blockSize) + 0.5), Math.floor((position.x + offsetX) / blockSize));
+        return this._propertyAtPosition(position, this.ceilingAtCoordinates.bind(this));
     }
 
     static createLevel(level, opts) {
