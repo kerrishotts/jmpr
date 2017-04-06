@@ -96,7 +96,7 @@ exports.Player = class Player {
         }
 
         if (neededHeight !== undefined) {
-            if (startingHeight >= (neededHeight - 25) && startingPlummet > 0) {
+            if (startingHeight >= (neededHeight - 50) && startingPlummet >= 0) {
                 // started out /above/ the floor, and was falling
                 if (position.y < neededHeight) {
                     position.y = neededHeight; // can't fall /through/ the floor
