@@ -143,7 +143,7 @@ exports.textures = Object.keys(_textures).reduce((acc, tName) => {
         arr[arrIdx + 0] = 255 - (tValue * 255);
         arr[arrIdx + 1] = 255 - (tValue * 255);
         arr[arrIdx + 2] = 255 - (tValue * 255);
-        arr[arrIdx + 3] = 255; // - (tValue * 255);
+        arr[arrIdx + 3] = 255;
     }
     let texture = new THREE.DataTexture(arr, 9, 9, THREE.RGBAFormat);
     texture.needsUpdate = true;
