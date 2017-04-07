@@ -36,8 +36,8 @@ exports.TouchController = class TouchController extends Controller {
          [downButton, "Down"]].forEach(([el, evtName]) => {
             el.addEventListener("touchstart", evt => this[`on${evtName}Down`](evt));
             el.addEventListener("touchend", evt => this[`on${evtName}Up`](evt));
-            //el.addEventListener("mousedown", evt => this[`on${evtName}Down`](evt));
-            //el.addEventListener("mouseup", evt => this[`on${evtName}Up`](evt));
+            el.addEventListener("mousedown", evt => this[`on${evtName}Down`](evt));
+            el.addEventListener("mouseup", evt => this[`on${evtName}Up`](evt));
             document.body.appendChild(el);
          });
 
