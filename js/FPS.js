@@ -1,7 +1,7 @@
 /*globals exports, require*/
 const fmt2 = require("./util").fmt2;
 exports.FPS = class FPS {
-    constructor({ el, reportEvery = 250, history = 60, fancy = false } = {}) {
+    constructor({ el, reportEvery = 250, history = 60, fancy = false, render = true } = {}) {
         if (!el) {
             this._el = document.createElement("div");
             this._el.classList.add("fps");
@@ -13,6 +13,7 @@ exports.FPS = class FPS {
         this.reportEvery = reportEvery;
         this.history = history;
         this.fancy = fancy;
+        this.render = render;
 
         this.reset();
     }
@@ -38,10 +39,12 @@ exports.FPS = class FPS {
             this._totalTime += delta;
             this._totalFrames++;
 
-            this._recentFrameTimes.push(delta);
-            this._recentTime += delta;
-            while (this._recentFrameTimes.length > this.history) {
-                this._recentTime -= this._recentFrameTimes.shift();
+            if (this.render) {
+                this._recentFrameTimes.push(delta);
+                this._recentTime += delta;
+                while (this._recentFrameTimes.length > this.history) {
+                    this._recentTime -= this._recentFrameTimes.shift();
+                }
             }
         }
         this._oldTime = time;
@@ -53,6 +56,9 @@ exports.FPS = class FPS {
     }
 
     report() {
+        if (!this.render) {
+            return;
+        }
         let recentAvgFrameTime = this._recentTime / this.history;
         let recentFPS = 1000 / recentAvgFrameTime;
         let lastFrameTime = Math.floor((this._recentFrameTimes[this._recentFrameTimes.length - 1]) * 100) / 100;
