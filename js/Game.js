@@ -4,6 +4,18 @@ var FPS = require("./FPS"),
     Level = require("./Level"),
     levels = require("./levels");
 
+const TARGET_FPS = 60;
+const MS_PER_SECOND = 1000;
+const MS_PER_FRAME = MS_PER_SECOND / TARGET_FPS;
+
+const PHYSICS_MODE_CONSTANT = 0;
+const PHYSICS_MODE_TICK = 1;
+const PHYSICS_MODE_DELTA = 2;
+
+const PHYSICS_MODE = PHYSICS_MODE_TICK;
+
+const SLOW_FACTOR = 1;
+
 exports.Game = class Game {
     constructor({ controllers, initialState = "demo" } = {}) {
         this.state = initialState;
@@ -21,7 +33,9 @@ exports.Game = class Game {
 
         this.controllers = controllers;
 
-        this.fps = new FPS({ fancy: false });
+        this.fps = new FPS({ fancy: true, render: false });
+
+        this._physicsAccumulator = 0;
 
         this.init();
     }
@@ -59,7 +73,6 @@ exports.Game = class Game {
             velocity: new THREE.Vector3(0, 0, 25)
         });
 
-        this._bob = 0;
 
         this.resume();
         requestAnimationFrame(t => this.animate(t));
@@ -74,7 +87,6 @@ exports.Game = class Game {
         this.resumeMusic();
         this.paused = false;
         this.fps.reset();
-        //requestAnimationFrame(t => this.animate(t));
     }
 
     startMusic() {
@@ -120,8 +132,13 @@ exports.Game = class Game {
         this.renderer = new THREE.WebGLRenderer({
             antialias: false
         });
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(devicePixelRatio);
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+        /*this.renderer.autoClear = false;
+        this.renderer.autoClearColor = false;
+        this.renderer.autoClearDepth = false;
+        this.renderer.autoClearStencil = false;*/
 
         document.body.appendChild(this.renderer.domElement);
 
@@ -170,8 +187,9 @@ exports.Game = class Game {
         player.position.set(0, 200, 1500);  // beginning of the level
         player.velocity.set(0, 0, 25);      // initial velocity
         player.grounded = false;
-        player._bob = 0;                    // reset bobbing
+        player.bob = 0;                    // reset bobbing
         this.waitingForInteraction = this.inGameMode;
+        this._physicsAccumulator = 0;
                                             // wait for interaction to start if in game
         this.pause();                       // pause game
         if (player.dead) {
@@ -179,9 +197,8 @@ exports.Game = class Game {
         }
     }
 
-    update(t, d) {
-        let delta = 1, //d / (1000 / 60),
-            player = this.player,
+    update(delta = 1) {
+        let player = this.player,
             state = this.controllers.readState(),
             up = state.up,
             down = state.down,
@@ -192,6 +209,9 @@ exports.Game = class Game {
             retry = state.retry;
 
         if (up || down || left || right) {
+            if (this.waitingForInteraction) {
+                this._physicsAccumulator = 0;
+            }
             this.waitingForInteraction = false;
             if (this.inDemoMode) {
                 this.resetLevel("game");
@@ -206,34 +226,27 @@ exports.Game = class Game {
             }
         }
 
-        player.velocity.x = 0;
+        player.velocity.x /= (2 * delta); //0;
         if (left) {
             player.velocity.x = Math.min(player.velocity.z, player.velocity.x + (player.velocity.z));
         }
         if (right) {
             player.velocity.x = Math.max(-player.velocity.z, player.velocity.x - (player.velocity.z));
         }
+        player.defyGravity = false;
         if (up) {
             if (player.grounded) {
                 player.velocity.y = -115;
             } else {
                 if (player.velocity.y > 0) {
-                    player.velocity.y -= (player.gravity / 1.33);
+                    player.defyGravity = true;
                 }
             }
         }
         player.crouch = false;
         if (down && player.grounded) {
-            //player.velocity.y /= 4;
-            //player.velocity.z = Math.min(50, player.velocity.z + 1.5);
             player.crouch = true;
-        } else {
-            /*if (player.velocity.z > 15) {
-                player.velocity.z -= 1;
-            }*/
         }
-
-
     }
 
     animate(t) {
@@ -247,13 +260,28 @@ exports.Game = class Game {
             inDemo = this.inDemoMode,
             inGame = this.inGameMode;
 
-        requestAnimationFrame(t => this.animate(t));
+        //requestAnimationFrame(t => this.animate(t));
+        requestAnimationFrame(this.animate.bind(this));
 
+/*      // artificial slow down
+        if (t % 33 > 16) {
+                return;
+        }
+*/
         // report fps and get delta
-        var d = this.fps.frame(t);
+        var extra;
+        extra = Math.floor((1 + this._physicsAccumulator) * 10000) / 10000;
+        var d = this.fps.frame(t, extra);
         var force = d === 0 || player.dead;            // if d is zero we need to redraw the entire level
 
-        this.update(t, d);
+        if (SLOW_FACTOR !== 1) {
+            d /= SLOW_FACTOR;
+        }
+
+        var df = (d / MS_PER_FRAME);
+        this._physicsAccumulator += df;
+
+        this.update(PHYSICS_MODE === PHYSICS_MODE_DELTA ? df : 1);
 
         if (this.paused || this.waitingForInteraction) {
             return;
@@ -270,39 +298,67 @@ exports.Game = class Game {
             d = 0;
             force = true;
             if (playerWasDead) {
-                level.updateScene(player.position.z, { force });
+                level.updateScene(player.position.z, force);
                 return;
             }
         }
 
-        player.applyPhysics(d);
-        camera.position.copy(this.player.position);
+        switch (PHYSICS_MODE) {
+        case PHYSICS_MODE_CONSTANT:
+            this._physicsAccumulator = 0;
+            player.applyPhysics(1);
+            camera.position.copy(this.player.position);
+            break;
+        case PHYSICS_MODE_TICK:
+            while (this._physicsAccumulator >= 0) {
+                player.tick();
+                this._physicsAccumulator -= 1;
+                if (this._physicsAccumulator > 0) {
+                    this.update(1);
+                }
+            }
+            camera.position.copy(this.player.interpolate(1 + this._physicsAccumulator));
+            break;
+        case PHYSICS_MODE_DELTA:
+        default:
+            this._physicsAccumulator = 0;
+            player.applyPhysics(df);
+            camera.position.copy(this.player.position);
+        }
+
 
         if (inGame) {
+
+            // crouch
             camera.position.y -= (player.crouch ? 100 : 0);
+
             // camera bob
             if (player.grounded) {
-                this._bob += 16;
-                camera.position.x += Math.cos((this._bob / 3) * (Math.PI / 180)) * 10;
-                camera.position.y += Math.abs(Math.sin((this._bob / 2) * (Math.PI / 180)) * 10);
+                camera.position.x += Math.cos((player.bob / 3) * (Math.PI / 180)) * 10;
+                camera.position.y += Math.abs(Math.sin((player.bob / 2) * (Math.PI / 180)) * 10);
             }
+
+            // rotate against movement
             let pvx = (player.velocity.x / 4) * (Math.PI / 180);
             if (Math.abs(camera.quaternion.z) != Math.abs(pvx)) {
                 camera.quaternion.z -= (camera.quaternion.z - pvx) / 3;
             }
-            camera.quaternion.x = 0;
+            camera.quaternion.x = 0;    // looking ahead
 
-            // calculate fov
+            // calculate fov to simulate speed
             camera.fov = Math.min(112.5 + (player.velocity.z / 2), 160);
             camera.updateProjectionMatrix();
         } else {
-            //camera.position.z -= 1000;
-            camera.position.y += 400;
-            camera.quaternion.x = -0.25;
+            camera.position.y += 400;    // up high
+            camera.quaternion.x = -0.25; // looking down
         }
 
+        camera.x = Math.round(camera.x);
+        camera.y = Math.round(camera.y);
+        camera.z = Math.round(camera.z);
+
         // refresh level rendering
-        level.updateScene(player.position.z, { force });
+        level.updateScene(player.position.z, force);
         renderer.render(scene, camera);
 
     }
