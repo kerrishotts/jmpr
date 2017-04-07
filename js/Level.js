@@ -59,7 +59,8 @@ exports.Level = class Level {
                 arr.push(level.height[0].map((_, idx) => {
                     let material = new THREE.MeshLambertMaterial({
                         color: this.colors[(z + idx) % this.colors.length],
-                        wireframe: false
+                        wireframe: false,
+                        map: textures[" "]
                     });
                     material.needsUpdate = true;
                     return new THREE.Mesh(box, material)
@@ -161,16 +162,16 @@ exports.Level = class Level {
                         floor.visible = true;
                         ceiling.visible = false;
                         floor.position.set(x * blockSize - offsetX, -(halfHeight + offsetY) + h, -z * blockSize);
-                        if (flag !== " " && textures[flag]) {
+                        if (textures[flag]) {
                             floor.material.map = textures[flag];
                         } else {
-                            floor.material.map = null;
+                            floor.material.map = textures[" "];
                         }
                         if (!Number.isNaN(parseInt(flag, 16))) {
                             ceiling.position.set(x * blockSize - offsetX, h + parseInt(flag, 16) * blockSize, -z * blockSize);
                             ceiling.visible = true;
                         }
-                        floor.material.needsUpdate = true;
+                        //floor.material.needsUpdate = true;
                     } else {
                         ceiling.visible = false;
                         floor.visible = false;
