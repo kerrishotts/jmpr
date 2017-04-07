@@ -34,18 +34,21 @@ exports.TouchController = class TouchController extends Controller {
          [rightButton, "Right"],
          [upButton, "Up"],
          [downButton, "Down"]].forEach(([el, evtName]) => {
-            el.addEventListener("touchstart", evt => this[`on${evtName}Down`](evt));
-            el.addEventListener("touchend", evt => this[`on${evtName}Up`](evt));
-            el.addEventListener("mousedown", evt => this[`on${evtName}Down`](evt));
-            el.addEventListener("mouseup", evt => this[`on${evtName}Up`](evt));
+            let onEvtDown = `on${evtName}Down`,
+                onEvtUp = `on${evtName}Up`;
+            el.addEventListener("touchstart", evt => this[onEvtDown](evt));
+            el.addEventListener("touchend", evt => this[onEvtUp](evt));
+            el.addEventListener("mousedown", evt => this[onEvtDown](evt));
+            el.addEventListener("mouseup", evt => this[onEvtUp](evt));
             document.body.appendChild(el);
          });
 
         [[pauseButton, "Pause"],
          [exitButton, "Exit"],
          [retryButton, "Retry"]].forEach(([el, evtName]) => {
-            el.addEventListener("touchstart", evt => {});
-            el.addEventListener("click", evt => this[`on${evtName}Pressed`](evt));
+            let onEvtPressed = `on${evtName}Pressed`;
+            el.addEventListener("touchstart", evt => { /* trigger iOS Active state */ });
+            el.addEventListener("click", evt => this[onEvtPressed](evt));
             //el.addEventListener("mouseup", evt => this[`on${evtName}Pressed`](evt));
             document.body.appendChild(el);
         });
