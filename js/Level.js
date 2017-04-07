@@ -52,7 +52,7 @@ exports.Level = class Level {
             _floor = this._floor,
             _ceiling = this._ceiling;
 
-        let box = new THREE.BoxGeometry(blockSize, MAX_STEPS * stepSize, blockSize, 1, 1, 1);
+        let box = new THREE.BoxBufferGeometry(blockSize, MAX_STEPS * stepSize, blockSize, 1, 1, 1);
 
         for (let z = 0; z < drawDistance; z++) {
             [_floor, _ceiling].forEach(arr => {

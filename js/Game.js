@@ -122,7 +122,7 @@ exports.Game = class Game {
         this.paused = false;
         this.controllers.init();
 
-        this.camera = new THREE.PerspectiveCamera(120, window.innerWidth / window.innerHeight, 1, 10000);
+        this.camera = new THREE.PerspectiveCamera(120, window.innerWidth / window.innerHeight, 1,5000);
 
         var listener = new THREE.AudioListener();
         this.camera.add(listener);
@@ -130,7 +130,8 @@ exports.Game = class Game {
         this.audioLoader = new THREE.AudioLoader();
 
         this.renderer = new THREE.WebGLRenderer({
-            antialias: false
+            antialias: navigator.userAgent.match(/iPad|iPhone/i),
+            //preserveDrawingBuffer: true
         });
         this.renderer.setPixelRatio(devicePixelRatio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
