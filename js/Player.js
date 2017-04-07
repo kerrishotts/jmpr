@@ -31,16 +31,39 @@ exports.Player = class Player {
         this.minForwardVelocity = minForwardVelocity;
 
         this.position = position.clone();
+        this.lastPosition = this.position.clone();
+        this.camPosition = this.position.clone();
         this.velocity = velocity.clone();
 
         this.grounded = false;
         this.dead = false;
         this.crouch = false;
+        this.defyGravity = false;
+        this.bob = 0;
     }
 
-    applyPhysics(d) {
-        let delta = d / (1000 / 60),
-            cd = this.cd,
+    interpolate(delta = 0) {
+        let camPosition = this.camPosition;
+        if (delta > 0) {
+            let lx = this.lastPosition.x, nx = this.position.x, dx = nx - lx,
+                ly = this.lastPosition.y, ny = this.position.y, dy = ny - ly,
+                lz = this.lastPosition.z, nz = this.position.z, dz = nz - lz;
+
+            camPosition.x = lx + (dx * delta);
+            camPosition.y = ly + (dy * delta);
+            camPosition.z = lz + (dz * delta);
+        }
+
+        return camPosition;
+    }
+
+    tick() {
+        this.lastPosition.copy(this.position);
+        this.applyPhysics();
+    }
+
+    applyPhysics(delta = 1) {
+        let cd = this.cd,
             rho = this.density,
             mass = this.mass,
             radius = this.radius,
@@ -54,6 +77,12 @@ exports.Player = class Player {
             startingPlummet = velocity.y,
             immortal = this.immortal;
 
+        // player can increase hang time by defying gravity
+        if (this.defyGravity) {
+            velocity.y -= (gravity / 1.33) * delta;
+        }
+
+        // calculate new position based on velocity and gravity
         for (let i = 0, v = velocity.getComponent(i); i < 3; i++) {
             v = -0.5 * cd * A * rho * (v * v * v) / Math.abs(v);
             v = isNaN(v) ? 0 : v;
@@ -80,16 +109,19 @@ exports.Player = class Player {
 
         this.grounded = false;
 
+        // if we're out-of-z-bounds, this is all the further we can go
+        // can't kill the player or anything like that
         if (position.z > 0) {
             return;
         }
 
+        // figure out our obstacles
         let neededHeight = level.heightAtPosition(position);
         let ceilingHeight = level.ceilingAtPosition(position);
         let flag = level.flagAtPosition(position);
 
         if (neededHeight !== undefined) {
-            neededHeight += 200;
+            neededHeight += 200;        // playerHeight
         }
         if (ceilingHeight !== undefined) {
             ceilingHeight -= 0;
@@ -112,13 +144,21 @@ exports.Player = class Player {
             }
 
             if (position.y <= neededHeight) {
+                // we're below the needed height -- can we safely transition up
+                // or are dead?
                 let distance = neededHeight - position.y;
-                if (distance > level.blockSize) {
+                if (distance > level.blockSize * 2) {
                     this.dead = !this.immortal && true;
                     return;
                 }
+
+                // if we can bounce, do so
                 velocity.y = (-(Math.abs(velocity.y) * this.restitution));
+
+                // slowly adjust to desired position
                 position.y += (distance / 3) * delta;
+
+                // we're on the ground, yay!
                 this.grounded = true;
             }
 
@@ -129,19 +169,21 @@ exports.Player = class Player {
             }
         }
 
+        // too low!
         if (position.y < -((level.blockSize * 200) * 2)) {
             this.dead = !this.immortal && true;
             this.grounded = false;
         }
 
+        // speed up / slow down
         if (velocity.z !== targetForwardVelocity) {
             if (velocity.z < targetForwardVelocity) {
-                velocity.z += 5;
+                velocity.z += 5 * delta;
                 if (velocity.z > targetForwardVelocity) {
                     velocity.z = targetForwardVelocity;
                 }
             } else {
-                velocity.z -= 2.5;
+                velocity.z -= 2.5 * delta;
                 if (velocity.z < targetForwardVelocity) {
                     velocity.z = targetForwardVelocity;
                 }
@@ -152,25 +194,31 @@ exports.Player = class Player {
         if (this.grounded) {
             switch (flag) {
             case "^":
-                velocity.y -= 115;
+                velocity.y = -115; // * delta;
                 break;
             case ">":
-                velocity.z += 10;
+                velocity.z += 10 * delta;
                 break;
             case "_":
-                velocity.z -= 10;
+                velocity.z -= 10 * delta;
                 break;
             case "<":
-                velocity.z = Math.max(targetForwardVelocity, velocity.z - 10);
+                velocity.z = Math.max(targetForwardVelocity, velocity.z - 10 * delta);
                 break;
             default:
             }
         }
 
+        // cap forward/backward velocities
         if (velocity.z > this.maxForwardVelocity) {
             velocity.z = this.maxForwardVelocity;
         } else if (velocity.z < this.minForwardVelocity) {
             velocity.z = this.minForwardVelocity;
+        }
+
+        // let the camera bob if we're grounded
+        if (this.grounded) {
+            this.bob += 16 * delta;
         }
     }
 };
