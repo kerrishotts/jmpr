@@ -99,7 +99,7 @@ exports.Level = class Level {
     makeScene() {
         let scene = new THREE.Scene();
 
-        this.updateScene(0, { force: true });
+        this.updateScene(0, true);
         this._floor.forEach(z => z.forEach(mesh => scene.add(mesh)));
         this._ceiling.forEach(z => z.forEach(mesh => scene.add(mesh)));
 
@@ -117,7 +117,7 @@ exports.Level = class Level {
 
     }
 
-    updateScene(cameraZ, { force = false } = {}) {
+    updateScene(cameraZ, force = false) {
         let stepSize = this.stepSize,
             blockSize = this.blockSize,
             level = this.level,
@@ -131,10 +131,8 @@ exports.Level = class Level {
 
         let now = performance.now(),
             timeLastBeat = this._timeLastBeat,
-            beatIntensity = this.beatIntensity,
             msBetweenBeats = this._msBetweenBeats,
             colors = this.colors,
-            timeSinceLastBeat = msBetweenBeats ? (now - this._timeLastBeat) % msBetweenBeats : 0,
             timeForBeat = (timeLastBeat !== 0) ? ((now - this._timeLastBeat) > msBetweenBeats) : false;
 
 
@@ -181,7 +179,7 @@ exports.Level = class Level {
             }
         }
 
-        if ((msBetweenBeats > 0) || force) {
+        if ((timeForBeat && msBetweenBeats > 0) || force || (delta > 0)) {
             // rotate our colors
             if (timeForBeat) {
                 let tmpColor = colors.shift();
@@ -224,16 +222,6 @@ exports.Level = class Level {
                     let color = colorPicks[(z + x) % colorPicks.length];
                     floor.material.color.set(color);
                     ceiling.material.color.set(color);
-                    /*if (msBetweenBeats > 0 && timeLastBeat > 0 && flag === " ") {
-                        var lOffset = 0.90 - (((timeSinceLastBeat / msBetweenBeats)));
-                        var r = floor.material.color.r,
-                            g = floor.material.color.g,
-                            b = floor.material.color.b;
-                        floor.material.color.setRGB(Math.max(lOffset, r), Math.max(lOffset, g), Math.max(lOffset, b));
-                        ceiling.material.color.copy(floor.material.color);
-                        //floor.material.color.offsetHSL(0, 0, -lOffset);
-                        //ceiling.material.color.offsetHSL(0, 0, -lOffset);
-                    }*/
                 }
             }
         }
