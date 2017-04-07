@@ -8,6 +8,7 @@
 body {
     overflow: hidden;
     margin: 0;
+    touch-action: manipulation;
 }
 
 .fps {
@@ -31,6 +32,7 @@ body {
     text-align: center;
     border: none;
     display: block;
+    touch-action: manipulation;
 }
 
 .pause, .retry, .exit, .down {
@@ -64,33 +66,45 @@ body {
 }
 
 .left {
-    width: 49vw;
-    height: 75vh;
+    width: 25vw;
     top: 0;
     left: 0;
+    bottom: 0;
     text-align: left;
-    line-height: 75vh;
+    line-height: 100vh;
+    padding-left: 5vw;
 }
 
 .right {
-    width: 49vw;
-    height: 75vh;
+    width: 25vw;
     top: 0;
     right: 0;
+    bottom: 0;
     text-align: right;
-    line-height: 75vh;
+    line-height: 100vh;
+    padding-right: 5vw;
 }
 
 .up {
-    height: 25vh;
-    top: 75vh;
-    left: 0;
-    width: 100vw;
-    line-height: 25vh;
+    top: 0;
+    bottom: 0;
+    left: 25vw;
+    right: 25vw;
+    padding-top: 90vh;
 }
 
 .down {
     display: none;
     right: 44px;
     bottom: 44px;
+}
+
+canvas {
+  image-rendering: optimizeSpeed;             /* Older versions of FF          */
+  image-rendering: -moz-crisp-edges;          /* FF 6.0+                       */
+  image-rendering: -webkit-optimize-contrast; /* Safari                        */
+  image-rendering: -o-crisp-edges;            /* OS X & Windows Opera (12.02+) */
+  image-rendering: pixelated;                 /* Awesome future-browsers       */
+  -ms-interpolation-mode: nearest-neighbor;   /* IE                            */
+
 }
