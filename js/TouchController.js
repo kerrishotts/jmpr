@@ -1,7 +1,6 @@
-/* globals require, exports */
-var Controller = require("./Controller");
+import Controller from "./Controller.js";
 
-exports.TouchController = class TouchController extends Controller {
+export default class TouchController extends Controller {
     _createControlSurface() {
         let pauseButton = document.createElement("div");
         let exitButton = document.createElement("div");

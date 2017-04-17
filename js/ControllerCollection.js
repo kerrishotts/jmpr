@@ -1,6 +1,4 @@
-/*globals exports*/
-
-exports.ControllerCollection = class ControllerCollection {
+export default class ControllerCollection {
     constructor(controllers = []) {
         this.controllers = controllers;
         this._states = ["up", "left", "right", "down", "pause", "exit", "retry"];

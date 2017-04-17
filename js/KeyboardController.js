@@ -1,5 +1,4 @@
-/* globals require, exports */
-var Controller = require("./Controller");
+import Controller from "./Controller.js";
 
 const directionalBitmap = {
 
@@ -18,7 +17,7 @@ const directionalBitmap = {
     83: 0b00000001,         /* s = down */
 }
 
-exports.KeyboardController = class KeyboardController extends Controller {
+export default class KeyboardController extends Controller {
     constructor() {
         super();
         this._directions = 0;

@@ -1,8 +1,6 @@
-/*globals require*/
-var levels = require("../levels.js");
-var music = require("../music.js");
+import music from "../music.js";
 
-levels[0] = [
+const LEVEL_DATA = [
     ["80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 80 ", 10, 25],
     ["80 80}80 80 80 80 80r80e80a80d80y80 80 80 80 80{80 ", 1],
     ["80 80 80}80 80 80 80 80 80 80 80 80 80 80 80{80 80 ", 1],
@@ -175,10 +173,13 @@ levels[0] = [
     [".. .. .. .. .. .. .. 80 80 80 .. .. .. .. .. .. .. ", 100],
 ];
 
-levels[0].options = {
-    bpm: music.roccow01.bpm,
-    //colors: [0xC0A090, 0xA090C0, 0x90A0C0, 0xA0C090, 0xC090A0, 0x90A0C0],
-    colors: [0xFF8040, 0x8040FF, 0x40FF80, 0x80FF40, 0xFF4080, 0x4080FF],
-    //colors: [0xFFFFFF, 0x404040, 0x804040, 0x408040],
-    music: music.roccow01
+export default {
+    level: LEVEL_DATA,
+    options: {
+        bpm: music.roccow01.bpm,
+        //colors: [0xC0A090, 0xA090C0, 0x90A0C0, 0xA0C090, 0xC090A0, 0x90A0C0],
+        colors: [0xFF8040, 0x8040FF, 0x40FF80, 0x80FF40, 0xFF4080, 0x4080FF],
+        //colors: [0xFFFFFF, 0x404040, 0x804040, 0x408040],
+        music: music.roccow01
+    }
 };

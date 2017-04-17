@@ -1,8 +1,7 @@
-/* globals require*/
-const Game = require("./Game");
-const TouchController = require("./TouchController");
-const KeyboardController = require("./KeyboardController");
-const ControllerCollection = require("./ControllerCollection");
+import ControllerCollection from "./ControllerCollection.js";
+import Game from "./Game.js";
+import KeyboardController from "./KeyboardController.js";
+import TouchController from "./TouchController.js";
 
 let kbd = new KeyboardController();
 let touch = new TouchController();

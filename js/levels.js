@@ -1,3 +1,5 @@
-/* globals exports, requires */
+import level01 from "./levels/level01.js";
 
-exports.levels = [];
+export default [
+    level01,
+];

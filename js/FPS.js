@@ -1,6 +1,7 @@
-/*globals exports, require*/
-const fmt2 = require("./util").fmt2;
-exports.FPS = class FPS {
+import util from "./util.js";
+const fmt2 = util.fmt2;
+
+export default class FPS {
     constructor({ el, reportEvery = 250, history = 60, fancy = false, render = true } = {}) {
         if (!el) {
             this._el = document.createElement("div");

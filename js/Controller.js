@@ -1,7 +1,5 @@
-/* globals exports */
 
-
-exports.Controller = class Controller {
+export default class Controller {
     constructor() {
         this.up = false;
         this.down = false;

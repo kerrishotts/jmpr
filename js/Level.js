@@ -1,11 +1,12 @@
-/* globals exports, require, THREE */
+/* globals THREE */
+
+import textures from "./textures.js";
+
 const MS_IN_A_MINUTE = 60 * 1000;
 const MAX_STEPS = 256;
 const HALF_MAX_STEPS = 128;
 
-var textures = require("./textures");
-
-exports.Level = class Level {
+export default class Level {
     constructor(level, { blockSize = 200, stepSize = 25, drawDistance = 15,
         bpm = 120, colors = [0xFF8020, 0x8020FF], beatIntensity = 0.125,
         initialSpeed = 25 } = {}) {
@@ -331,7 +332,7 @@ exports.Level = class Level {
         return new Level(level, opts);
     }
 
-};
+}
 
-exports.Level.MAX_STEPS = MAX_STEPS;
-exports.Level.HALF_MAX_STEPS = HALF_MAX_STEPS;
+Level.MAX_STEPS = MAX_STEPS;
+Level.HALF_MAX_STEPS = HALF_MAX_STEPS;

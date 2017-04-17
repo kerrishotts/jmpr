@@ -1,8 +1,8 @@
-/* globals exports, require, THREE */
-var FPS = require("./FPS"),
-    Player = require("./Player"),
-    Level = require("./Level"),
-    levels = require("./levels");
+/* globals THREE */
+import FPS from "./FPS.js";
+import Level from "./Level.js";
+import Player from "./Player.js";
+import levels from "./levels.js";
 
 const TARGET_FPS = 60;
 const MS_PER_SECOND = 1000;
@@ -16,7 +16,7 @@ const PHYSICS_MODE = PHYSICS_MODE_TICK;
 
 const SLOW_FACTOR = 1;
 
-exports.Game = class Game {
+export default class Game {
     constructor({ controllers, initialState = "demo" } = {}) {
         this.state = initialState;
 
@@ -51,7 +51,7 @@ exports.Game = class Game {
     start(atLevel = 1) {
         let normalizedLevel = atLevel - 1,
             level = levels[normalizedLevel];
-        this.level = Level.createLevel(level, level.options);
+        this.level = Level.createLevel(level.level, level.options);
         if (level.options.music) {
             this.audioLoader.load(`music/${level.options.music.file}`, buffer => {
                 this.musicStartPoints = level.options.music.startPoints;

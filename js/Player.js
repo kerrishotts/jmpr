@@ -1,7 +1,7 @@
-/* globals exports, require, THREE */
-var util = require("util.js");
+/* globals THREE */
+import util from "./util.js";
 
-exports.Player = class Player {
+export default class Player {
 
     /* physics from https://www.burakkanber.com/blog/modeling-physics-javascript-gravity-and-drag/ */
     constructor({ position = (new THREE.Vector3()),

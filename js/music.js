@@ -1,6 +1,4 @@
-/* globals exports */
-
-exports.music = {
+export default {
     "roccow01": {
         bpm: 128.005,
         file: "roccow-sweet-self-satisfaction.mp3",

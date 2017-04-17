@@ -1,4 +1,4 @@
-/*global exports, THREE*/
+/*global THREE*/
 let _textures = {};
 
 _textures[">"] = [
@@ -195,7 +195,7 @@ _textures["y"] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
-exports.textures = Object.keys(_textures).reduce((acc, tName) => {
+let textures = Object.keys(_textures).reduce((acc, tName) => {
     let t = _textures[tName];
     let buf = new ArrayBuffer(9 * 9 * 4);
     let arr = new Uint8Array(buf);
@@ -212,3 +212,5 @@ exports.textures = Object.keys(_textures).reduce((acc, tName) => {
     acc[tName] = texture;
     return acc;
 }, {});
+
+export default textures;
