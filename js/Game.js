@@ -86,6 +86,7 @@ exports.Game = class Game {
     resume() {
         this.resumeMusic();
         this.paused = false;
+        this._physicsAccumulator = 0;
         this.fps.reset();
     }
 
@@ -122,7 +123,7 @@ exports.Game = class Game {
         this.paused = false;
         this.controllers.init();
 
-        this.camera = new THREE.PerspectiveCamera(120, window.innerWidth / window.innerHeight, 1,5000);
+        this.camera = new THREE.PerspectiveCamera(120, window.innerWidth / window.innerHeight, 1, 5000);
 
         var listener = new THREE.AudioListener();
         this.camera.add(listener);
@@ -227,12 +228,14 @@ exports.Game = class Game {
             }
         }
 
-        player.velocity.x /= (2 * delta); //0;
-        if (left) {
-            player.velocity.x = Math.min(player.velocity.z, player.velocity.x + (player.velocity.z));
-        }
-        if (right) {
-            player.velocity.x = Math.max(-player.velocity.z, player.velocity.x - (player.velocity.z));
+        player.velocity.x = 0;
+        if (!(left && right)) {
+            if (left) {
+                player.velocity.x = player.velocity.z;
+            }
+            if (right) {
+                player.velocity.x = -player.velocity.z;
+            }
         }
         player.defyGravity = false;
         if (up) {
@@ -247,6 +250,29 @@ exports.Game = class Game {
         player.crouch = false;
         if (down && player.grounded) {
             player.crouch = true;
+        }
+    }
+
+    updateCamera() {
+        let player = this.player,
+            camera = this.camera;
+        if (this.inGameMode) {
+
+            // crouch
+            camera.position.y -= (player.crouch ? 100 : 0);
+
+            // camera bob
+            if (player.grounded) {
+                camera.position.x += Math.cos((player.bob / 3) * (Math.PI / 180)) * 10;
+                camera.position.y += Math.abs(Math.sin((player.bob / 2) * (Math.PI / 180)) * 10);
+            }
+
+           // calculate fov to simulate speed
+            camera.fov = Math.min(112.5 + (player.velocity.z / 2), 160);
+            camera.updateProjectionMatrix();
+        } else {
+            camera.position.y += 400;    // up high
+            camera.quaternion.x = -0.25; // looking down
         }
     }
 
@@ -309,54 +335,32 @@ exports.Game = class Game {
             this._physicsAccumulator = 0;
             player.applyPhysics(1);
             camera.position.copy(this.player.position);
+            camera.quaternion.copy(this.player.quaternion);
             break;
         case PHYSICS_MODE_TICK:
             while (this._physicsAccumulator >= 0) {
                 player.tick();
                 this._physicsAccumulator -= 1;
                 if (this._physicsAccumulator > 0) {
-                    this.update(1);
+                    //this.update(1);
                 }
             }
-            camera.position.copy(this.player.interpolate(1 + this._physicsAccumulator));
+            let [camPosition, camQuaternion] = this.player.interpolate(1 + this._physicsAccumulator);
+            camera.position.copy(camPosition);
+            camera.quaternion.copy(camQuaternion);
             break;
         case PHYSICS_MODE_DELTA:
         default:
             this._physicsAccumulator = 0;
             player.applyPhysics(df);
             camera.position.copy(this.player.position);
+            camera.quaternion.copy(this.player.quaternion);
         }
 
-
-        if (inGame) {
-
-            // crouch
-            camera.position.y -= (player.crouch ? 100 : 0);
-
-            // camera bob
-            if (player.grounded) {
-                camera.position.x += Math.cos((player.bob / 3) * (Math.PI / 180)) * 10;
-                camera.position.y += Math.abs(Math.sin((player.bob / 2) * (Math.PI / 180)) * 10);
-            }
-
-            // rotate against movement
-            let pvx = (player.velocity.x / 4) * (Math.PI / 180);
-            if (Math.abs(camera.quaternion.z) != Math.abs(pvx)) {
-                camera.quaternion.z -= (camera.quaternion.z - pvx) / 3;
-            }
-            camera.quaternion.x = 0;    // looking ahead
-
-            // calculate fov to simulate speed
-            camera.fov = Math.min(112.5 + (player.velocity.z / 2), 160);
-            camera.updateProjectionMatrix();
-        } else {
-            camera.position.y += 400;    // up high
-            camera.quaternion.x = -0.25; // looking down
-        }
-
-        camera.x = Math.round(camera.x);
+        this.updateCamera(1);
+        /*camera.x = Math.round(camera.x);
         camera.y = Math.round(camera.y);
-        camera.z = Math.round(camera.z);
+        camera.z = Math.round(camera.z);*/
 
         // refresh level rendering
         level.updateScene(player.position.z, force);
