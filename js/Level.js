@@ -7,10 +7,12 @@ var textures = require("./textures");
 
 exports.Level = class Level {
     constructor(level, { blockSize = 200, stepSize = 25, drawDistance = 15,
-        bpm = 120, colors = [0xFF8020, 0x8020FF], beatIntensity = 0.125 } = {}) {
+        bpm = 120, colors = [0xFF8020, 0x8020FF], beatIntensity = 0.125,
+        initialSpeed = 25 } = {}) {
         this.blockSize = blockSize;
         this.stepSize = stepSize;
         this.drawDistance = drawDistance;
+        this._initialSpeed = initialSpeed;
 
         this.level = this._parseLevel(level);
         this.curRow = 0;
@@ -25,6 +27,7 @@ exports.Level = class Level {
 
         this._floor = [];
         this._ceiling = [];
+        this._speeds = [];
         this._initBoxArray();
     }
 
@@ -69,24 +72,40 @@ exports.Level = class Level {
         }
     }
 
-    _parseLevel(level) {
+    _parseLevel(level, len = 0) {
         let parsedLevel = {
+            _curSpeed: this._initialSpeed,
             flags: [],
             height: [],
+            speeds: [],
         };
         for (let i = 0; i < level.length; i++) {
             let r = level[i];
             if (r instanceof Array) {
                 let rpt = r[1];
-                r = this._parseLevel([r[0]]);
+                if (r[2]) {
+                    parsedLevel._curSpeed = r[2];
+                }
+                r = this._parseLevel([r[0]], parsedLevel.height.length);
                 for (let i = 0; i < rpt; i++) {
                     parsedLevel.height.push(r.height[0]);
                     parsedLevel.flags.push(r.flags[0]);
+                    parsedLevel.speeds.push(parsedLevel._curSpeed);
                 }
             } else {
                 r = r.split(/(...)/).filter(i => i !== "");
-                parsedLevel.height.push(r.map(c => Number.isNaN(parseInt(c.substr(0, 2), 16)) ? undefined : parseInt(c.substr(0, 2), 16)));
+                parsedLevel.height.push(r.map((c, idx) => {
+                    c = c.substr(0, 2);
+                    let algs = {
+                        "rr": Math.random() * 256,
+                        "ss": 256 * Math.sin((len + idx) * (Math.PI / 180)),
+                        "cc": 256 * Math.cos((len + idx) * (Math.PI / 180)),
+                        "sc": 256 * (Math.cos(len) * (Math.PI / 180) + Math.sin(idx) * (Math.PI / 180)),
+                    };
+                    return Number.isNaN(parseInt(c, 16)) ? algs[c] : parseInt(c, 16);
+                }));
                 parsedLevel.flags.push(r.map(c => c[2]));
+                parsedLevel.speeds.push(parsedLevel._curSpeed);
             }
         }
         parsedLevel.length = parsedLevel.height.length;
@@ -167,7 +186,7 @@ exports.Level = class Level {
                         } else {
                             floor.material.map = textures[" "];
                         }
-                        if (!Number.isNaN(parseInt(flag, 16))) {
+                        if (!Number.isNaN(parseInt(flag, 16)) && flag.toUpperCase() === flag) {
                             ceiling.position.set(x * blockSize - offsetX, h + parseInt(flag, 16) * blockSize, -z * blockSize);
                             ceiling.visible = true;
                         }
@@ -235,6 +254,15 @@ exports.Level = class Level {
         }
     }
 
+    targetSpeedAtCoordinates(z) {
+        let r = this.level.speeds[z];
+        if (r !== undefined) {
+            return r;
+        } else {
+            return this._initialSpeed;
+        }
+    }
+
     heightAtCoordinates(z, x) {
         let offsetY = HALF_MAX_STEPS * this.stepSize;
         let r = this.level.height[z];
@@ -265,12 +293,12 @@ exports.Level = class Level {
             flags = this.level.flags[z];
         if (r && flags) {
             let ceiling = parseInt(flags[x], 16);
-            if (!Number.isNaN(ceiling)) {
+            if (!Number.isNaN(ceiling) && flags[x].toUpperCase() == flags[x]) {
                 let c = r[x];
                 if (c === undefined) {
                     return undefined;
                 }
-                let h = (ceiling * this.blockSize);
+                let h = this.heightAtCoordinates(z, x) + (ceiling * this.blockSize);
                 return h;
             }
         }
@@ -293,6 +321,10 @@ exports.Level = class Level {
 
     ceilingAtPosition(position) {
         return this._propertyAtPosition(position, this.ceilingAtCoordinates.bind(this));
+    }
+
+    targetSpeedAtPosition(position) {
+        return this._propertyAtPosition(position, this.targetSpeedAtCoordinates.bind(this));
     }
 
     static createLevel(level, opts) {
