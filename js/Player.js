@@ -1,4 +1,6 @@
 /* globals exports, require, THREE */
+var util = require("util.js");
+
 exports.Player = class Player {
 
     /* physics from https://www.burakkanber.com/blog/modeling-physics-javascript-gravity-and-drag/ */
@@ -34,6 +36,9 @@ exports.Player = class Player {
         this.lastPosition = this.position.clone();
         this.camPosition = this.position.clone();
         this.velocity = velocity.clone();
+        this.quaternion = new THREE.Vector4();
+        this.lastQuaternion = this.quaternion.clone();
+        this.camQuaternion = this.lastQuaternion.clone();
 
         this.grounded = false;
         this.dead = false;
@@ -43,22 +48,32 @@ exports.Player = class Player {
     }
 
     interpolate(delta = 0) {
-        let camPosition = this.camPosition;
+        let camPosition = this.camPosition,
+            camQuaternion = this.camQuaternion;
         if (delta > 0) {
             let lx = this.lastPosition.x, nx = this.position.x, dx = nx - lx,
                 ly = this.lastPosition.y, ny = this.position.y, dy = ny - ly,
-                lz = this.lastPosition.z, nz = this.position.z, dz = nz - lz;
+                lz = this.lastPosition.z, nz = this.position.z, dz = nz - lz,
+                lqx = this.lastQuaternion.x, nqx = this.quaternion.x, dqx = nqx - lqx,
+                lqy = this.lastQuaternion.y, nqy = this.quaternion.y, dqy = nqy - lqy,
+                lqz = this.lastQuaternion.z, nqz = this.quaternion.z, dqz = nqz - lqz;
 
             camPosition.x = lx + (dx * delta);
             camPosition.y = ly + (dy * delta);
             camPosition.z = lz + (dz * delta);
+
+            camQuaternion.x = lqx + (dqx * delta);
+            camQuaternion.y = lqy + (dqy * delta);
+            camQuaternion.z = lqz + (dqz * delta);
+
         }
 
-        return camPosition;
+        return [camPosition, camQuaternion];
     }
 
     tick() {
         this.lastPosition.copy(this.position);
+        this.lastQuaternion.copy(this.quaternion);
         this.applyPhysics();
     }
 
@@ -80,6 +95,10 @@ exports.Player = class Player {
         // player can increase hang time by defying gravity
         if (this.defyGravity) {
             velocity.y -= (gravity / 1.33) * delta;
+        }
+
+        if (this.crouch) {
+            velocity.z = 0;
         }
 
         // calculate new position based on velocity and gravity
@@ -109,6 +128,13 @@ exports.Player = class Player {
 
         this.grounded = false;
 
+        // update the player's quaternion (head angle)
+        let nqz = Math.min(10, velocity.x / 4) * (Math.PI / 180);
+        let dqz = this.quaternion.z - nqz;
+        if (dqz !== 0) {
+            this.quaternion.z = util.clamp(this.quaternion.z - (((Math.abs(dqz) / 4) * util.sign(dqz)) * delta), -0.5, 0.5);
+        }
+
         // if we're out-of-z-bounds, this is all the further we can go
         // can't kill the player or anything like that
         if (position.z > 0) {
@@ -119,6 +145,7 @@ exports.Player = class Player {
         let neededHeight = level.heightAtPosition(position);
         let ceilingHeight = level.ceilingAtPosition(position);
         let flag = level.flagAtPosition(position);
+        targetForwardVelocity = level.targetSpeedAtPosition(position);
 
         if (neededHeight !== undefined) {
             neededHeight += 200;        // playerHeight
@@ -128,7 +155,7 @@ exports.Player = class Player {
         }
 
         if (neededHeight !== undefined) {
-            if (startingHeight >= (neededHeight - 50) && startingPlummet >= 0) {
+            if (startingHeight >= (neededHeight - 25) && startingPlummet >= 0) {
                 // started out /above/ the floor, and was falling
                 if (position.y < neededHeight) {
                     position.y = neededHeight; // can't fall /through/ the floor
@@ -178,11 +205,13 @@ exports.Player = class Player {
         // speed up / slow down
         if (velocity.z !== targetForwardVelocity) {
             if (velocity.z < targetForwardVelocity) {
-                velocity.z += 5 * delta;
+                /* too slow; speed up */
+                velocity.z += 1 * delta;
                 if (velocity.z > targetForwardVelocity) {
                     velocity.z = targetForwardVelocity;
                 }
             } else {
+                /* too fast; slow down */
                 velocity.z -= 2.5 * delta;
                 if (velocity.z < targetForwardVelocity) {
                     velocity.z = targetForwardVelocity;
@@ -191,7 +220,7 @@ exports.Player = class Player {
         }
 
         // process flags
-        if (this.grounded) {
+        if (this.grounded && !this.immortal) {
             switch (flag) {
             case "^":
                 velocity.y = -115; // * delta;
@@ -203,7 +232,7 @@ exports.Player = class Player {
                 velocity.z -= 10 * delta;
                 break;
             case "<":
-                velocity.z = Math.max(targetForwardVelocity, velocity.z - 10 * delta);
+                velocity.z = Math.max(targetForwardVelocity, velocity.z - (10 * delta));
                 break;
             default:
             }
