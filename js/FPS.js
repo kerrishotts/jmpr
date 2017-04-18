@@ -1,5 +1,5 @@
 import util from "./util.js";
-const fmt2 = util.fmt2;
+const fmt = util.format;
 
 export default class FPS {
     constructor({ el, reportEvery = 250, history = 60, fancy = false, render = true } = {}) {
@@ -60,19 +60,22 @@ export default class FPS {
         if (!this.render) {
             return;
         }
+        let fps60 = 1000 / 60;
         let recentAvgFrameTime = this._recentTime / this.history;
         let recentFPS = 1000 / recentAvgFrameTime;
-        let lastFrameTime = Math.floor((this._recentFrameTimes[this._recentFrameTimes.length - 1]) * 100) / 100;
+        let lastFrameTime = this._recentFrameTimes[this._recentFrameTimes.length - 1];
+        let extraInfo = this._extraInfo;
+        let now = (performance.now() / 1000);
         if (this.fancy) {
             let recentFrameTimes = this._recentFrameTimes.reduce((acc, v, idx, arr) => {
                 if (idx > arr.length - 60) {
-                    acc.push(["&#x2804;", "&#x2806;", "&#x2807;"][Math.min(Math.floor(v / 18), 2)]);
+                    acc.push(["&#x2804;", "&#x2806;", "&#x2807;"][Math.min(Math.floor(v / fps60), 2)]);
                 }
                 return acc;
             }, []).join("");
-            this._el.innerHTML = `${Math.floor(lastFrameTime)} rFPS: ${fmt2(recentFPS)} (<span style='letter-spacing: -0.5em'>${recentFrameTimes}</span> ) ${this._extraInfo}`;
+            this._el.innerHTML = `${fmt(extraInfo)} ${fmt(now)} last: ${fmt(lastFrameTime)} rFPS: ${fmt(recentFPS)} (<span style='letter-spacing: -0.5em'>${recentFrameTimes}</span> )`;
         } else {
-            this._el.innerHTML = `${lastFrameTime} rFPS: ${fmt2(recentFPS)} ${this._extraInfo}`;
+            this._el.innerHTML = `${fmt(extraInfo)} ${fmt(now)} last: ${fmt(lastFrameTime)} rFPS: ${fmt(recentFPS)}`;
         }
     }
 }
