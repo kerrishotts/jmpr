@@ -21,13 +21,14 @@ body {
     color: white;
     width: 100%;
     text-align: right;
+    font-family: monospace;
 }
 
 .pause, .exit, .retry, .up, .down, .left, .right {
     position: absolute;
     -webkit-appearance: none;
     background-color: transparent;
-    color: rgba(255,255,255,0.33);
+    color: rgb(128,128,128);
     font-size: 22px;
     text-align: center;
     border: none;
@@ -45,7 +46,7 @@ body {
 }
 
 .pause:active, .retry:active, .exit:active, .down:active {
-    background-color: rgba(255,255,255,0.33);
+    background-color: rgb(128,128,128);
     color: black;
     outline: none;
 }
@@ -58,6 +59,10 @@ body {
 .retry {
     left: 0;
     top: 0;
+}
+
+.rs-base {
+    display: none;
 }
 
 .exit {
