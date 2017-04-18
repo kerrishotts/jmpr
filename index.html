@@ -14,6 +14,13 @@
 
     <body>
         <script src="js/index.js" type="module"></script>
+        <script>
+            if (navigator.userAgent.indexOf("Chrome") > -1) {
+                var scriptTag = document.createElement("script");
+                scriptTag.src = "js/bundle.js";
+                document.body.appendChild(scriptTag);
+            }
+        </script>
     </body>
 
 </html>

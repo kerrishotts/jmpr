@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "target": "es6",
+    "module": "es2015", // DCR
+    "inlineSourceMap": true
+  },
+  "include": ["js/**/*"]
+}
