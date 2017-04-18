@@ -427,7 +427,7 @@ export default class Game {
                 player.tick();
                 this._physicsAccumulator -= 1;
                 if (this._physicsAccumulator > 0) {
-                    //this.update(1);
+                    this.update(1);
                 }
             }
             [camPosition, camQuaternion] = this.player.interpolate(1 + this._physicsAccumulator);
