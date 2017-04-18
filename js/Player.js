@@ -110,7 +110,7 @@ export default class Player {
             switch (i) {
             case 1: // y
                 if (position.z < 0) {
-                    v = (immortal ? 0 : gravity) + (v / mass);
+                    v = (immortal ? 0.25 : gravity) + (v / mass);
                     break;
                 }
             case 2: // z
@@ -155,6 +155,11 @@ export default class Player {
         }
 
         if (neededHeight !== undefined) {
+            if (immortal) {
+                if (position.y < neededHeight) {
+                    position.y -= (position.y - neededHeight) / 4;
+                }
+            }
             if (startingHeight >= (neededHeight - 25) && startingPlummet >= 0) {
                 // started out /above/ the floor, and was falling
                 if (position.y < neededHeight) {
