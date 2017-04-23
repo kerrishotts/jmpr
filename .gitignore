@@ -37,6 +37,4 @@ jspm_packages
 # Optional REPL history
 .node_repl_history
 
-# ignore music for now
-music/*.mp3
 .vscode
