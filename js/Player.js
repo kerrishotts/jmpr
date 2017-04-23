@@ -1,6 +1,7 @@
 /* globals THREE */
 import flags from "./flags.js";
 import util from "./util.js";
+import audioManager from "./AudioManager.js";
 
 export default class Player {
 
@@ -181,7 +182,7 @@ export default class Player {
                 // or are dead?
                 let distance = neededHeight - position.y;
                 if (distance > level.blockSize * 2) {
-                    this.dead = !this.immortal && true;
+                    this.die();
                     return;
                 }
 
@@ -197,15 +198,14 @@ export default class Player {
 
             if (ceilingHeight && (position.y > ceilingHeight)) {
                 // fell into a ceiling piece
-                this.dead = !this.immortal && true;
+                this.die();
                 return;
             }
         }
 
         // too low!
         if (position.y < -((level.blockSize * 200) * 2)) {
-            this.dead = !this.immortal && true;
-            this.grounded = false;
+            this.die();
         }
 
         // speed up / slow down
@@ -229,7 +229,7 @@ export default class Player {
         if (this.grounded && !this.immortal) {
             switch (flag.action) {
             case flags.ACTION.JUMP:
-                velocity.y = -115; // * delta;
+                this.jump();
                 break;
             case flags.ACTION.SPEED_UP:
                 velocity.z += 10 * delta;
@@ -241,8 +241,7 @@ export default class Player {
                 velocity.z = Math.max(targetForwardVelocity, velocity.z - (10 * delta));
                 break;
             case flags.ACTION.DIE:
-                this.dead = !this.immortal && true;
-                this.grounded = false;
+                this.die();
                 break;
             case flags.ACTION.NONE:
             default:
@@ -261,4 +260,16 @@ export default class Player {
             this.bob += 16 * delta;
         }
     }
-};
+
+    jump() {
+        this.velocity.y = -115;
+        audioManager.play("jump");
+    }
+
+    die() {
+        this.dead = !this.immortal && true;
+        this.grounded = false;
+        audioManager.play("explode");
+    }
+
+}
