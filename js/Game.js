@@ -1,8 +1,10 @@
 /* globals THREE, rStats, threeStats, glStats */
+import Beat from "./Beat.js";
 import Delta from "./Delta.js";
 import Level from "./Level.js";
 import Player from "./Player.js";
 import levels from "./levels.js";
+import textVariations from "./textVariations.js";
 
 import display from "./Display.js";
 import audioManager from "./AudioManager.js";
@@ -21,6 +23,15 @@ const PHYSICS_MODE = PHYSICS_MODE_TICK;
 
 const SLOW_FACTOR = 1;
 
+const WAITING_REASON = {
+    NOT_WAITING: 0,
+    NEW_GAME: 1,
+    RETRY: 10,
+    PAUSED: 20,
+    DEMO: 30,
+    DIED: 99,
+}
+
 export default class Game {
     constructor({ controllers, initialState = "demo" } = {}) {
         this.state = initialState;
@@ -29,15 +40,15 @@ export default class Game {
         this.scene = undefined;
         this.renderer = undefined;
 
+        this.beat = new Beat();
         this.musicStartPoints = [0];
 
         this.paused = false;
-        this.waitingForInteraction = this.inGameMode;
+        this.waitingForInteraction = initialState === "demo" ? WAITING_REASON.DEMO : WAITING_REASON.NEW_GAME;
 
         this.controllers = controllers;
 
         this.delta = new Delta();
-
         this._physicsAccumulator = 0;
 
         this._stats = null;
@@ -47,84 +58,7 @@ export default class Game {
         this.init();
     }
 
-    get inDemoMode() {
-        return this.state === "demo";
-    }
-
-    get inGameMode() {
-        return this.state !== "demo";
-    }
-
-    start(atLevel = 1) {
-        let normalizedLevel = atLevel - 1,
-            level = levels[normalizedLevel];
-        this.level = Level.createLevel(level.level, level.options);
-        if (level.options.music) {
-            audioManager.add({ name: "level", url: `music/${level.options.music.file}`, loop: true });
-            this.musicStartPoints = level.options.music.startPoints;
-        }
-
-        this.scene = this.level.makeScene();
-        this.scene.fog = new THREE.FogExp2(0x000000, 0.00066);
-
-        this.player = new Player({
-            immortal: this.inDemoMode,
-            level: this.level,
-            restitution: 0,
-            position: new THREE.Vector3(0, 200, 1500),
-            velocity: new THREE.Vector3(0, 0, 25)
-        });
-
-
-        this.resume();
-        requestAnimationFrame(t => this.animate(t));
-    }
-
-    pause() {
-        if (!display.visible) {
-            display.print(this.player.dead ? "Dead!" : "Paused");
-        }
-        this.paused = true;
-        this.pauseMusic();
-    }
-
-    resume() {
-        if (this.paused) {
-            display.hide();
-        }
-        this.resumeMusic();
-        this.paused = false;
-        this._physicsAccumulator = 0;
-    }
-
-    startMusic() {
-        let startTime = this.musicStartPoints[Math.floor(Math.random() * this.musicStartPoints.length)];
-        audioManager.stop("bg");
-        audioManager.play("level", startTime);
-        this.level.startBeat();
-    }
-
-    pauseMusic() {
-        if (audioManager.isPlaying("level")) {
-            audioManager.stop("level");
-            this.level.stopBeat();
-        }
-    }
-
-    resumeMusic() {
-        if (audioManager.isPlaying("level")) {
-            this.startMusic();
-        }
-
-    }
-
-    stopMusic() {
-        audioManager.stop("level");
-        this.level.stopBeat();
-    }
-
     init() {
-        this.paused = false;
         this.controllers.init();
 
         this.camera = new THREE.PerspectiveCamera(120, window.innerWidth / window.innerHeight, 1, 5000);
@@ -172,24 +106,58 @@ export default class Game {
         }
     }
 
-    onResize(evt) {
-        if (this._resizeTimer) {
-            clearTimeout(this._resizeTimer);
+    start(atLevel = 1) {
+        let normalizedLevel = atLevel - 1,
+            level = levels[normalizedLevel],
+            beat = this.beat;
+        this.currentLevelDefinition = level;
+        this.level = Level.createLevel(level.level, level.options);
+        if (level.options.music) {
+            beat.bpm = level.options.bpm;
+            audioManager.add({ name: "level", url: `music/${level.options.music.file}`, loop: true });
+            this.musicStartPoints = level.options.music.startPoints;
         }
-        this._resizeTimer = setTimeout(() => {
-            this._resizeTimer = null;
-            let camera = this.camera,
-                renderer = this.renderer;
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }, 250);
+
+        this.scene = this.level.makeScene();
+        this.scene.fog = new THREE.FogExp2(0x000000, 0.00066);
+
+        // add some stars to the level?
+        let lineGeometry = new THREE.Geometry();
+        for (let i = 0; i < 20000; i++) {
+            let v = new THREE.Vertex();
+            v.x = (Math.random() * 20000 / 2) - 10000 / 2;
+            v.y = (Math.random() * 40000 / 2) - 20000 / 2;
+            v.z = -(Math.random() * (this.level.level.length * this.level.blockSize)) - 1000;
+            lineGeometry.vertices.push(v);
+            v = v.clone();
+            v.z -= 100 + (Math.random() * 1000);
+            lineGeometry.vertices.push(v);
+        }
+
+        let lineMaterial = new THREE.LineBasicMaterial({ color: 0xFFFFFF, opacity: 0.75, linewidth: 2, transparent: true });
+        let lines = new THREE.LineSegments(lineGeometry, lineMaterial);
+        this._lines = lines;
+        this.scene.add(lines);
+
+        this.player = new Player({
+            immortal: this.inDemoMode,
+            level: this.level,
+            restitution: 0,
+            position: new THREE.Vector3(0, 200, 1500),
+            velocity: new THREE.Vector3(0, 0, 25)
+        });
+
+        this._resetPhysics();
+        requestAnimationFrame(t => this.animate(t));
     }
 
-    resetLevel(state) {
+
+    reset(state, waitReason) {
         let player = this.player;
 
         this.stopMusic();
+        this._resetPhysics();
+        this.delta.reset();
 
         this.state = state || this.state;
 
@@ -198,18 +166,18 @@ export default class Game {
         player.position.set(0, 200, 1500);  // beginning of the level
         player.velocity.set(0, 0, 25);      // initial velocity
         player.grounded = false;
-        player.bob = 0;                    // reset bobbing
-        this.delta.reset();
-        this.waitingForInteraction = this.inGameMode;
-        this._physicsAccumulator = 0;
-                                            // wait for interaction to start if in game
-        this.pause();                       // pause game
-        if (player.dead) {
-            player.dead = false;            // player lives!
+        player.bob = 0;                     // reset bobbing
+        player.dead = false;                // player lives!
+
+        // wait for interaction to start if in game
+        if (waitReason !== undefined) {
+            this.waitingForInteraction = waitReason;
         }
+        this.pause();                       // pause game
+
     }
 
-    update(delta = 1) {
+    update() {
         if (DEBUG) {
             this._stats("update").start();
         }
@@ -219,24 +187,36 @@ export default class Game {
             down = state.down,
             left = state.left,
             right = state.right,
-            pause = state.pause,
+            pause = state.pause; /*,
             exit = state.exit,
-            retry = state.retry;
+            retry = state.retry;*/
+
+        // if we're waiting for something, or paused, take care of rendering that
+        // to the screen
+        this._renderMessage();
 
         if (up || down || left || right) {
-            if (this.waitingForInteraction) {
+            if (this.waitingForInteraction !== WAITING_REASON.NOT_WAITING) {
+                if (this.controllers.timeSinceLastInput < 100) {
+                    return;
+                }
                 display.hide();
-                this._physicsAccumulator = 0;
+                this._resetPhysics();
             }
-            this.waitingForInteraction = false;
+            this.waitingForInteraction = WAITING_REASON.NOT_WAITING;
             if (this.inDemoMode) {
-                this.resetLevel("game");
+                this.reset("game");
             }
         }
 
         if (pause) {
+            this.waitingForInteraction = WAITING_REASON.PAUSED;
             this.pause()
         } else {
+            if (this.waitingForInteraction !== WAITING_REASON.DEMO &&
+                this.waitingForInteraction !== WAITING_REASON.DIED) {
+                this.waitingForInteraction = WAITING_REASON.NOT_WAITING;
+            }
             if (this.paused) {
                 this.resume();
             }
@@ -254,8 +234,7 @@ export default class Game {
         player.defyGravity = false;
         if (up) {
             if (player.grounded) {
-                player.velocity.y = -115;
-                audioManager.play("jump");
+                player.jump();
             } else {
                 if (player.velocity.y > 0) {
                     player.defyGravity = true;
@@ -276,9 +255,10 @@ export default class Game {
             this._stats("camera").start();
         }
         let player = this.player,
-            camera = this.camera;
-        if (this.inGameMode) {
+            camera = this.camera,
+            beat = this.beat;
 
+        if (this.inGameMode) {
             // crouch
             camera.position.y -= (player.crouch ? 100 : 0);
 
@@ -289,9 +269,9 @@ export default class Game {
             }
 
             // calculate fov to simulate speed
-            var beatAdjust = 0; //this.level._timeLastBeat !== 0 ? -((performance.now() - this.level._timeLastBeat) / 30) + 5 : 0;
-            camera.fov = Math.min(112.5 + (player.velocity.z / 2) + beatAdjust, 160);
+            camera.fov = Math.min(112.5 + (player.velocity.z / 2), 160);
             camera.updateProjectionMatrix();
+
         } else {
             camera.position.y += 400;    // up high
             camera.quaternion.x = -0.25; // looking down
@@ -340,26 +320,19 @@ export default class Game {
             level = this.level,
             renderer = this.renderer,
             player = this.player,
-            inDemo = this.inDemoMode,
+            //inDemo = this.inDemoMode,
             inGame = this.inGameMode,
             camPosition,
             camQuaternion;
 
-/*      // artificial slow down
-        if (t % 33 > 16) {
-                return;
-        }
-*/
-
-
         // report fps and get delta
         var df = this.beginFrame(t);
-        var force = df === 0 || player.dead;            // if d is zero we need to redraw the entire level
+        var force = df === 0 || player.dead;            // force lets us determine when to redraw the entire level
         this._physicsAccumulator += df;
 
-        this.update(PHYSICS_MODE === PHYSICS_MODE_DELTA ? df : 1);
+        this.update();
 
-        if (this.paused || this.waitingForInteraction) {
+        if (this.paused || (this.waitingForInteraction !== WAITING_REASON.NOT_WAITING && this.waitingForInteraction !== WAITING_REASON.DEMO)) {
             this.endFrame();
             return;
         }
@@ -371,11 +344,10 @@ export default class Game {
         // detect if at end of level so we can restart
         if (player.dead || player.position.z < -(level.level.length * level.blockSize)) {
             let playerWasDead = player.dead;
-            this.resetLevel(player.dead ? "game" : this.state);
+            this.reset(player.dead ? "game" : this.state, playerWasDead ? WAITING_REASON.DIED : undefined);
             df = 0;
             force = true;
             if (playerWasDead) {
-                audioManager.play("explode");
                 if (DEBUG) {
                     this._stats("scene").start();
                 }
@@ -424,11 +396,10 @@ export default class Game {
         }
 
         this.updateCamera(1);
-/*
-        camera.x = Math.round(camera.x);
-        camera.y = Math.round(camera.y);
-        camera.z = Math.round(camera.z);
-*/
+        // blink lines
+        this._lines.material.opacity = 0.75 - (this.beat.normalizedTimeSinceLastBeat / 2);
+        this._lines.position.y = camera.position.y / 3;
+        this._lines.position.x = camera.position.x / 3;
 
         // refresh level rendering
         if (DEBUG) {
@@ -450,4 +421,111 @@ export default class Game {
         this.endFrame();
     }
 
-};
+    /*
+     * Private methods
+     **************************************************************************/
+
+    _resetPhysics() {
+        this._physicsAccumulator = 0;
+    }
+
+    _renderMessage() {
+        if (!display.visible) {
+            switch (this.waitingForInteraction) {
+            case WAITING_REASON.NEW_GAME:
+            case WAITING_REASON.RETRY:
+            case WAITING_REASON.DEMO:
+                display.print("Ready?", this.currentLevelDefinition.options.name);
+                break;
+            case WAITING_REASON.PAUSED:
+                display.print("Paused");
+                break;
+            case WAITING_REASON.DIED:
+                display.print(textVariations.getDeathTitle(), textVariations.getDeathText());
+                break;
+            case WAITING_REASON.NOT_WAITING:
+            default:
+                display.hide();
+            }
+        } else {
+            if (this.waitingForInteraction === WAITING_REASON.NOT_WAITING) {
+                display.hide();
+            }
+        }
+    }
+
+    /*
+     * State management
+     **************************************************************************/
+
+    pause() {
+        this.paused = true;
+        this.pauseMusic();
+    }
+
+    resume() {
+        this.resumeMusic();
+        this.paused = false;
+        this._resetPhysics();
+    }
+
+    /*
+     * Music related functions
+     **************************************************************************/
+
+    startMusic() {
+        let startTime = this.musicStartPoints[Math.floor(Math.random() * this.musicStartPoints.length)];
+        audioManager.stop("bg");
+        audioManager.play("level", startTime);
+        this.beat.start();
+    }
+
+    pauseMusic() {
+        if (audioManager.isPlaying("level")) {
+            audioManager.stop("level");
+            this.beat.stop();
+        }
+    }
+
+    resumeMusic() {
+        if (audioManager.isPlaying("level")) {
+            this.startMusic();
+        }
+
+    }
+
+    stopMusic() {
+        audioManager.stop("level");
+        this.beat.stop();
+    }
+
+    /*
+     * Events
+     **************************************************************************/
+
+    onResize() {
+        if (this._resizeTimer) {
+            clearTimeout(this._resizeTimer);
+        }
+        this._resizeTimer = setTimeout(() => {
+            this._resizeTimer = null;
+            let camera = this.camera,
+                renderer = this.renderer;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }, 250);
+    }
+
+    /*
+     * Properties
+     **************************************************************************/
+    get inDemoMode() {
+        return this.state === "demo";
+    }
+
+    get inGameMode() {
+        return this.state !== "demo";
+    }
+
+}
