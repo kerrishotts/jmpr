@@ -111,15 +111,24 @@ export default class Game {
             level = levels[normalizedLevel],
             beat = this.beat;
         this.currentLevelDefinition = level;
-        this.level = Level.createLevel(level.level, level.options);
+
+        let options = Object.assign({}, level.options);
+        options.drawDistance = 15;
+
+        this.level = Level.createLevel(level.level, options);
         if (level.options.music) {
             beat.bpm = level.options.bpm;
             audioManager.add({ name: "level", url: `music/${level.options.music.file}`, loop: true });
             this.musicStartPoints = level.options.music.startPoints;
         }
 
+        this.camera.far = this.level.blockSize * (options.drawDistance - 2);
+        this.camera.updateProjectionMatrix();
         this.scene = this.level.makeScene();
-        this.scene.fog = new THREE.FogExp2(0x000000, 0.00066);
+
+        let bgColor = level.options.bgColor || 0x000000;
+        this.scene.fog = new THREE.Fog(bgColor, 1, this.camera.far);
+        this.renderer.setClearColor(bgColor);
 
         // add some stars to the level?
         let lineGeometry = new THREE.Geometry();
@@ -138,6 +147,14 @@ export default class Game {
         let lines = new THREE.LineSegments(lineGeometry, lineMaterial);
         this._lines = lines;
         this.scene.add(lines);
+
+        let planeColor = level.options.planeColor || 0x800000;
+        let planeGeometry = new THREE.PlaneGeometry(100000, this.level.level.length * this.level.blockSize);
+        let planeMaterial = new THREE.MeshLambertMaterial({ color: planeColor });
+        let planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
+        planeMesh.rotation.x = -Math.PI / 2;
+        planeMesh.position.y = -(this.level.stepSize * (Level.HALF_MAX_STEPS + 8));
+        this.scene.add(planeMesh);
 
         this.player = new Player({
             immortal: this.inDemoMode,
@@ -197,7 +214,7 @@ export default class Game {
 
         if (up || down || left || right) {
             if (this.waitingForInteraction !== WAITING_REASON.NOT_WAITING) {
-                if (this.controllers.timeSinceLastInput < 100) {
+                if (this.controllers.timeSinceLastInput < 250) {
                     return;
                 }
                 display.hide();
