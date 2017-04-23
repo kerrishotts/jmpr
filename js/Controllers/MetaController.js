@@ -40,9 +40,10 @@ export default class MetaController extends Controller {
     }
 
     init(owner) {
-        this.owner = owner;
-        this._createControlSurface();
-        ["pause", "exit", "retry"].forEach(s => owner.registerSwitch(s));
+        if (super.init(owner)) {
+            this._createControlSurface();
+            ["pause", "exit", "retry"].forEach(s => owner.registerSwitch(s));
+        }
     }
 
     cleanUp() {
@@ -63,15 +64,18 @@ export default class MetaController extends Controller {
     onPausePressed(evt) {
         this.pause = !this.pause;
         evt.preventDefault();
+        this.notifyOwnerOfUpdate();
     }
 
     onExitPressed(evt) {
         this.exit = true;
         evt.preventDefault();
+        this.notifyOwnerOfUpdate();
     }
 
     onRetryPressed(evt) {
         this.retry = true;
         evt.preventDefault();
+        this.notifyOwnerOfUpdate();
     }
 }

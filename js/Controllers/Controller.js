@@ -1,16 +1,21 @@
 
 export default class Controller {
     constructor() {
-        this.up = false;
-        this.down = false;
-        this.left = false;
-        this.right = false;
-        this.retry = false;
-        this.exit = false;
-        this.pause = false;
+        this._initialized = false;
     }
 
-    init() {
-        return 0;
+    notifyOwnerOfUpdate() {
+        if (this._owner) {
+            this._owner.stateUpdated();
+        }
+    }
+
+    init(owner) {
+        if (!this._initialized) {
+            this._owner = owner;
+            this._initialized = true;
+            return true;
+        }
+        return false;
     }
 }

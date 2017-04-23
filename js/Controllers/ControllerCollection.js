@@ -1,8 +1,12 @@
+import Delta from "../Delta.js";
+
 export default class ControllerCollection {
     constructor(controllers = []) {
         this.controllers = controllers;
         this._states = [];
         this._state = {};
+        this._delta = new Delta({ t: performance.now(), maxAcceptableDelta: 1000 });
+        this.timeSinceLastInput = 1000;
     }
 
     init() {
@@ -30,6 +34,10 @@ export default class ControllerCollection {
         }
         this._states.push(name);
         this._state[name] = false;
+    }
+
+    stateUpdated() {
+        this.timeSinceLastInput = this._delta.update(performance.now());
     }
 
     readState() {

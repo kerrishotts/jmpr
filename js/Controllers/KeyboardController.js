@@ -24,10 +24,11 @@ export default class KeyboardController extends Controller {
     }
 
     init(owner/*: ControllerCollection*/) {
-        this.owner = owner;
-        document.addEventListener("keydown", this._keyDownEvent = evt => this.onKeyDown(evt));
-        document.addEventListener("keyup", this._keyUpEvent = evt => this.onKeyUp(evt));
-        ["up", "down", "left", "right"].forEach(s => owner.registerSwitch(s));
+        if (super.init(owner)) {
+            document.addEventListener("keydown", this._keyDownEvent = evt => this.onKeyDown(evt));
+            document.addEventListener("keyup", this._keyUpEvent = evt => this.onKeyUp(evt));
+            ["up", "down", "left", "right"].forEach(s => owner.registerSwitch(s));
+        }
     }
 
     cleanUp() {
@@ -54,6 +55,7 @@ export default class KeyboardController extends Controller {
         this.down = this._directions & 0b00000001;
         this.left = this._directions & 0b00000100;
         this.right = this._directions & 0b00000010;
+        this.notifyOwnerOfUpdate();
     }
 
 }

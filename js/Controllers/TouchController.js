@@ -30,9 +30,10 @@ export default class TouchController extends Controller {
     }
 
     init(owner) {
-        this.owner = owner;
-        this._createControlSurface();
-        ["up", "down", "left", "right"].forEach(s => owner.registerSwitch(s));
+        if (super.init(owner)) {
+            this._createControlSurface();
+            ["up", "down", "left", "right"].forEach(s => owner.registerSwitch(s));
+        }
     }
 
     cleanUp() {
@@ -66,6 +67,7 @@ export default class TouchController extends Controller {
             this.up = true;
         }
         evt.preventDefault();
+        this.notifyOwnerOfUpdate();
     }
 
     onRelease(evt) {
@@ -83,5 +85,6 @@ export default class TouchController extends Controller {
             this.up = false;
         }
         evt.preventDefault();
+        this.notifyOwnerOfUpdate();
     }
 }
