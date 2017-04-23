@@ -1,5 +1,5 @@
 export default class Delta {
-    constructor(t = -1, maxAcceptableDelta = 67) {
+    constructor({ t = -1, maxAcceptableDelta = 67 } = {}) {
         this._t = t;
         this.maxAcceptableDelta = maxAcceptableDelta;
     }
