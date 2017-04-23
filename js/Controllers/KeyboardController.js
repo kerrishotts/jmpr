@@ -55,7 +55,6 @@ export default class KeyboardController extends Controller {
         this.down = this._directions & 0b00000001;
         this.left = this._directions & 0b00000100;
         this.right = this._directions & 0b00000010;
-        this.notifyOwnerOfUpdate();
     }
 
 }

@@ -44,6 +44,7 @@ export default class ControllerCollection {
         let state = this._state,
             states = this._states,
             controllers = this.controllers,
+            someInput = false,
             statesLen = states.length - 1,
             i;
 
@@ -57,8 +58,13 @@ export default class ControllerCollection {
                 var stateToCheck = states[l];
                 if (controller[stateToCheck]) {
                     state[stateToCheck] = true;
+                    someInput = true;
                 }
             }
+        }
+
+        if (someInput) {
+            this.stateUpdated();
         }
 
         return this._state;

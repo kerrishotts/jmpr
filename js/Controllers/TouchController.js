@@ -67,7 +67,6 @@ export default class TouchController extends Controller {
             this.up = true;
         }
         evt.preventDefault();
-        this.notifyOwnerOfUpdate();
     }
 
     onRelease(evt) {
@@ -85,6 +84,5 @@ export default class TouchController extends Controller {
             this.up = false;
         }
         evt.preventDefault();
-        this.notifyOwnerOfUpdate();
     }
 }
