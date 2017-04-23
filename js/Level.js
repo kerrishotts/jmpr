@@ -65,8 +65,7 @@ function _setColor(material, color) {
 
 export default class Level {
     constructor(level, { blockSize = 200, stepSize = 25, drawDistance = 15,
-        colors = [0xFF8020, 0x8020FF], beatIntensity = 0.125,
-        initialSpeed = 25 } = {}) {
+        colors = [0xFF8020, 0x8020FF], initialSpeed = 25 } = {}) {
         this.blockSize = blockSize;
         this.stepSize = stepSize;
         this.drawDistance = drawDistance;
@@ -77,7 +76,6 @@ export default class Level {
         this.maxVisibleRow = drawDistance - 1;
 
         this.colors = colors;
-        this.beatIntensity = beatIntensity;
 
         this._floor = [];
         this._ceiling = [];
