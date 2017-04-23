@@ -201,6 +201,7 @@ const LEVEL_DATA = patterns.utils.series(patterns.ready(25), [
 export default {
     level: LEVEL_DATA,
     options: {
+        name: "Doddle in the Park",
         bpm: music.roccow01.bpm,
         //colors: [0xC0A090, 0xA090C0, 0x90A0C0, 0xA0C090, 0xC090A0, 0x90A0C0],
         colors: [0xFF8040, 0x8040FF, 0x40FF80, 0x80FF40, 0xFF4080, 0x4080FF],
