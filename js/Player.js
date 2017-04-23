@@ -1,4 +1,5 @@
 /* globals THREE */
+import Level from "./Level.js";
 import flags from "./flags.js";
 import util from "./util.js";
 import audioManager from "./AudioManager.js";
@@ -204,7 +205,7 @@ export default class Player {
         }
 
         // too low!
-        if (position.y < -((level.blockSize * 200) * 2)) {
+        if (position.y < -((level.stepSize * (Level.HALF_MAX_STEPS + 1)))) {
             this.die();
         }
 
@@ -269,7 +270,9 @@ export default class Player {
     die() {
         this.dead = !this.immortal && true;
         this.grounded = false;
-        audioManager.play("explode");
+        if (this.dead) {
+            audioManager.play("explode");
+        }
     }
 
 }
