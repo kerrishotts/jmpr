@@ -1,5 +1,6 @@
 /* globals THREE */
 
+import flags from "./flags.js";
 import textures from "./textures.js";
 
 const MS_IN_A_MINUTE = 60 * 1000;
@@ -276,11 +277,11 @@ export default class Level {
 
             for (let z = force ? curRow : (maxVisibleRow - delta); z <= Math.min(level.length - 1, maxVisibleRow); z++) {
                 let r = level.height[z],
-                    flags = level.flags[z];
+                    flagsInRow = level.flags[z];
                 let offsetX = (r.length / 2) * blockSize - (blockSize / 2);
                 for (let x = r.length - 1; x > -1; x--) {
                     let c = r[x],
-                        flag = flags[x] || " ",
+                        flag = flagsInRow[x] || " ",
                         floor = _floor[z - curRow][x],
                         ceiling = _ceiling[z - curRow][x];
                     if (c !== undefined) {
@@ -319,40 +320,21 @@ export default class Level {
 
             // colors get change irrespective of adjusting visible floor
             for (let z = curRow; z <= Math.min(level.length - 1, maxVisibleRow); z++) {
-                let r = level.height[z],
-                    flags = level.flags[z],
+                var r = level.height[z],
+                    flagsInRow = level.flags[z],
                     dz = z - curRow;
                 for (let x = r.length - 1; x > -1; x--) {
-                    let floor = _floor[dz][x],
+                    var floor = _floor[dz][x],
                         ceiling = _ceiling[dz][x],
-                        flag = flags[x] || " ",
-                        colorPicks;
-                    switch (flag) {
-                    case "X":
-                        colorPicks = [0xFF0000, 0xE00000];
-                        break;
-                    case "!":
-                        colorPicks = [0xFFFF00, 0xE0E000];
-                        break;
-                    case "^":
-                        colorPicks = [0x8000FF, 0x7000E0];
-                        break;
-                    case ">":
-                        colorPicks = [0x80FF00, 0x70E000];
-                        break;
-                    case "<":
-                        colorPicks = [0x808040, 0x707038];
-                        break;
-                    case "_":
-                        colorPicks = [0xAA7849, 0x8A5839];
-                        break;
-                    default:
-                        flag = " "; // let the color change
-                        colorPicks = colors;
+                        flag = flags.getFlag(flagsInRow[x]),
+                        colorPicks = flag.colors ? flag.colors : colors,
+                        color = colorPicks[(z + x) % colorPicks.length];
+                    if (floor.visible) {
+                        _setColor(floor.material, color);
                     }
-                    let color = colorPicks[(z + x) % colorPicks.length];
-                    _setColor(floor.material, color);
-                    _setColor(ceiling.material, color);
+                    if (ceiling.visible) {
+                        _setColor(ceiling.material, color);
+                    }
                 }
             }
         }
@@ -393,7 +375,7 @@ export default class Level {
         let r = this.level.flags[z];
         if (r) {
             let flag = r[x];
-            return flag;
+            return flags.getFlag(flag);
         } else {
             return undefined;
         }
@@ -419,7 +401,7 @@ export default class Level {
     _propertyAtPosition(position, fn) {
         let blockSize = this.blockSize;
         let offsetX = (this.level.height[0].length / 2) * blockSize;
-        return fn(Math.floor(-(position.z / blockSize) + 0.5), Math.floor((position.x + offsetX) / blockSize));
+        return fn(Math.floor(-(position.z / blockSize) + 0.0), Math.floor((position.x + offsetX) / blockSize));
     }
 
     flagAtPosition(position) {

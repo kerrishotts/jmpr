@@ -10,11 +10,15 @@
         <script src="node_modules/three/build/three.min.js"></script>
         <script src="vendor/rstats/rStats.js"></script>
         <script src="vendor/rstats/rStats.extras.js"></script>
+        <script src="vendor/svg-injector.min.js"></script>
+        <script src="vendor/waudjs/waud.min.js"></script>
     </head>
 
     <body>
+        <img class="inject-svg" src="img/sprite.svg">
         <script src="js/index.js" type="module"></script>
         <script>
+            SVGInjector(document.querySelectorAll("img.inject-svg"));
             if (navigator.userAgent.indexOf("Chrome") > -1) {
                 var scriptTag = document.createElement("script");
                 scriptTag.src = "js/bundle.js";

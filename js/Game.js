@@ -4,6 +4,9 @@ import Level from "./Level.js";
 import Player from "./Player.js";
 import levels from "./levels.js";
 
+import display from "./Display.js";
+import audioManager from "./AudioManager.js";
+
 const DEBUG = false
 
 const TARGET_FPS = 60;
@@ -26,8 +29,6 @@ export default class Game {
         this.scene = undefined;
         this.renderer = undefined;
 
-        this.sound = undefined;
-        this.audioLoader = undefined;
         this.musicStartPoints = [0];
 
         this.paused = false;
@@ -59,13 +60,8 @@ export default class Game {
             level = levels[normalizedLevel];
         this.level = Level.createLevel(level.level, level.options);
         if (level.options.music) {
-            this.audioLoader.load(`music/${level.options.music.file}`, buffer => {
-                this.musicStartPoints = level.options.music.startPoints;
-                let sound = this.sound;
-                sound.setBuffer(buffer);
-                sound.setLoop(true);
-                sound.setVolume(0.5);
-            });
+            audioManager.add({ name: "level", url: `music/${level.options.music.file}`, loop: true });
+            this.musicStartPoints = level.options.music.startPoints;
         }
 
         this.scene = this.level.makeScene();
@@ -85,42 +81,45 @@ export default class Game {
     }
 
     pause() {
+        if (!display.visible) {
+            display.print(this.player.dead ? "Dead!" : "Paused");
+        }
         this.paused = true;
         this.pauseMusic();
     }
 
     resume() {
+        if (this.paused) {
+            display.hide();
+        }
         this.resumeMusic();
         this.paused = false;
         this._physicsAccumulator = 0;
     }
 
     startMusic() {
-        if (this.sound) {
-            this.hasTriggeredPlayback = true;
-            this.sound.startTime = this.musicStartPoints[Math.floor(Math.random() * this.musicStartPoints.length)];
-            this.sound.play();
-            this.level.startBeat();
-        }
+        let startTime = this.musicStartPoints[Math.floor(Math.random() * this.musicStartPoints.length)];
+        audioManager.stop("bg");
+        audioManager.play("level", startTime);
+        this.level.startBeat();
     }
 
     pauseMusic() {
-        if (this.sound && this.sound.isPlaying) {
-            this.sound.pause();
+        if (audioManager.isPlaying("level")) {
+            audioManager.stop("level");
             this.level.stopBeat();
         }
     }
 
     resumeMusic() {
-        if (this.sound && this.sound.isPlaying) {
+        if (audioManager.isPlaying("level")) {
             this.startMusic();
         }
+
     }
 
     stopMusic() {
-        if (this.sound) {
-            this.sound.stop();
-        }
+        audioManager.stop("level");
         this.level.stopBeat();
     }
 
@@ -132,28 +131,17 @@ export default class Game {
 
         var listener = new THREE.AudioListener();
         this.camera.add(listener);
-        this.sound = new THREE.Audio(listener);
-        this.audioLoader = new THREE.AudioLoader();
 
         this.renderer = new THREE.WebGLRenderer({
             antialias: navigator.userAgent.match(/iPad|iPhone/i),
-            //preserveDrawingBuffer: true
         });
         this.renderer.setFaceCulling(THREE.CullFaceBack, THREE.FrontFaceDirectionCCW);
         this.renderer.setPixelRatio(devicePixelRatio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
 
-
-        /*this.renderer.autoClear = false;
-        this.renderer.autoClearColor = false;
-        this.renderer.autoClearDepth = false;
-        this.renderer.autoClearStencil = false;*/
-
         document.body.appendChild(this.renderer.domElement);
 
         window.addEventListener("resize", evt => this.onResize(evt));
-
-        document.addEventListener("touchend", evt => this.onTouchEnd(evt));
 
         if (DEBUG) {
             this._gStats = new glStats();
@@ -184,16 +172,6 @@ export default class Game {
         }
     }
 
-    onTouchEnd(evt) {
-        if (!this.hasTriggeredPlayback && this.sound && !this.sound.isPlaying) {
-            if (this.sound) {
-                this.sound.play();
-                this.sound.stop();
-                this.hasTriggeredPlayback = true;
-            }
-        }
-    }
-
     onResize(evt) {
         if (this._resizeTimer) {
             clearTimeout(this._resizeTimer);
@@ -209,12 +187,9 @@ export default class Game {
     }
 
     resetLevel(state) {
-        let player = this.player,
-            sound = this.sound;
+        let player = this.player;
 
-        if (sound && sound.isPlaying) {
-            this.stopMusic();
-        }
+        this.stopMusic();
 
         this.state = state || this.state;
 
@@ -250,6 +225,7 @@ export default class Game {
 
         if (up || down || left || right) {
             if (this.waitingForInteraction) {
+                display.hide();
                 this._physicsAccumulator = 0;
             }
             this.waitingForInteraction = false;
@@ -279,6 +255,7 @@ export default class Game {
         if (up) {
             if (player.grounded) {
                 player.velocity.y = -115;
+                audioManager.play("jump");
             } else {
                 if (player.velocity.y > 0) {
                     player.defyGravity = true;
@@ -361,7 +338,6 @@ export default class Game {
         var camera = this.camera,
             scene = this.scene,
             level = this.level,
-            sound = this.sound,
             renderer = this.renderer,
             player = this.player,
             inDemo = this.inDemoMode,
@@ -388,7 +364,7 @@ export default class Game {
             return;
         }
 
-        if (player.position.z < 0 && sound && !sound.isPlaying && inGame) {
+        if (player.position.z < 0 && !audioManager.isPlaying("level") && inGame) {
             this.startMusic();
         }
 
@@ -399,6 +375,7 @@ export default class Game {
             df = 0;
             force = true;
             if (playerWasDead) {
+                audioManager.play("explode");
                 if (DEBUG) {
                     this._stats("scene").start();
                 }

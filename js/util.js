@@ -1,3 +1,6 @@
+const SVG_NS = "http://www.w3.org/2000/svg",
+      XLINK_NS = "http://www.w3.org/1999/xlink";
+
 export default {
     clamp(v, min, max) {
         if (v < min) {
@@ -28,5 +31,12 @@ export default {
 
         return (int.toString() + "." + fraction.toString().substr(2).padEnd(decimals, "0")).padStart(width);
 
+    },
+    svgEl(icon) {
+        let svgWrapper = document.createElementNS(SVG_NS, "svg");
+        let svgIconEl = document.createElementNS(SVG_NS, "use");
+        svgIconEl.setAttributeNS(XLINK_NS, "xlink:href", `#${icon}`);
+        svgWrapper.appendChild(svgIconEl);
+        return svgWrapper;
     }
-};
+}

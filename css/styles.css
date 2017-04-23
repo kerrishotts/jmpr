@@ -1,8 +1,17 @@
+/* pixelated font (mine) */
+@font-face {
+    font-family: "16-bit 7x9 Nostalgia";
+    src: url('../fonts/16-bit 7x9 Nostalgia.woff2') format('woff2'),
+         url('../fonts/16-bit 7x9 Nostalgia.ttf') format('truetype');
+}
+
+/* prevent callouts on iOS and avoid selection as well */
 * {
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
+    outline: none;
 }
 
 body {
@@ -11,29 +20,41 @@ body {
     touch-action: manipulation;
 }
 
-.fps {
-    display: block;
-    position: absolute;
-    top: 0;
-    right: 0;
-    height: 1em;
-    z-index:99;
-    color: white;
-    width: 100%;
-    text-align: right;
-    font-family: monospace;
+/* svg icons */
+.inject-svg {
+    display: none;
 }
 
+svg {
+    width: 2.66rem;
+    height: 2.66rem;
+    min-width: 44px;
+    padding: 0;
+    margin: auto auto;
+    flex: 0 0 auto;
+}
+
+svg > use {
+    padding: 0;
+    margin: 0;
+}
+
+/* visible controls */
 .pause, .exit, .retry, .up, .down, .left, .right {
     position: absolute;
     -webkit-appearance: none;
     background-color: transparent;
-    color: rgb(128,128,128);
-    font-size: 22px;
+    color: rgba(255, 255, 255, 1);
     text-align: center;
     border: none;
     display: block;
     touch-action: manipulation;
+    /* svg */
+    display: inline-flex;
+    fill: currentColor;
+    transform: translateZ(0);
+    text-align: center !important;
+    z-index: 998;
 }
 
 .pause, .retry, .exit, .down {
@@ -46,7 +67,7 @@ body {
 }
 
 .pause:active, .retry:active, .exit:active, .down:active {
-    background-color: rgb(128,128,128);
+    background-color: rgba(255, 255, 255, 1);
     color: black;
     outline: none;
 }
@@ -95,6 +116,7 @@ body {
     bottom: 0;
     left: 25vw;
     right: 25vw;
+    width: 50vw;
     padding-top: 90vh;
 }
 
@@ -104,6 +126,7 @@ body {
     bottom: 44px;
 }
 
+/* 3D graphics */
 canvas {
   image-rendering: optimizeSpeed;             /* Older versions of FF          */
   image-rendering: -moz-crisp-edges;          /* FF 6.0+                       */
@@ -111,5 +134,51 @@ canvas {
   image-rendering: -o-crisp-edges;            /* OS X & Windows Opera (12.02+) */
   image-rendering: pixelated;                 /* Awesome future-browsers       */
   -ms-interpolation-mode: nearest-neighbor;   /* IE                            */
+}
 
+/* message overlays */
+.msg {
+    font-family: "16-bit 7x9 Nostalgia";
+    font-size: 128px;
+    color: white;
+    text-align: center;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 99;
+    display: flex;
+    flex-direction: column;
+   /* text-shadow: 0 0 16px black;*/
+}
+.msg h1 {
+    /*animation: 3s ease-in-out 0s infinite alternate rot; ,
+               1.33s ease-in-out 0s infinite alternate red-glow;*/
+    font-size: 100%;
+    margin: auto auto;
+    font-weight: normal;
+}
+.msg p {
+    font-size: 50%;
+    margin: auto auto;
+}
+
+/* message animations */
+@keyframes rot {
+    0% {
+        transform: rotate(-15deg);
+    }
+    100% {
+        transform: rotate(15deg);
+    }
+}
+
+@keyframes red-glow {
+    0% {
+        text-shadow: 0 0 16px rgba(0,0,0,1);
+    }
+    100% {
+        text-shadow: 0 0 16px rgba(255, 0, 0, 1);
+    }
 }

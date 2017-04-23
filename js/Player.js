@@ -1,4 +1,5 @@
 /* globals THREE */
+import flags from "./flags.js";
 import util from "./util.js";
 
 export default class Player {
@@ -226,19 +227,24 @@ export default class Player {
 
         // process flags
         if (this.grounded && !this.immortal) {
-            switch (flag) {
-            case "^":
+            switch (flag.action) {
+            case flags.ACTION.JUMP:
                 velocity.y = -115; // * delta;
                 break;
-            case ">":
+            case flags.ACTION.SPEED_UP:
                 velocity.z += 10 * delta;
                 break;
-            case "_":
+            case flags.ACTION.REALLY_SLOW:
                 velocity.z -= 10 * delta;
                 break;
-            case "<":
+            case flags.ACTION.SLOW_DOWN:
                 velocity.z = Math.max(targetForwardVelocity, velocity.z - (10 * delta));
                 break;
+            case flags.ACTION.DIE:
+                this.dead = !this.immortal && true;
+                this.grounded = false;
+                break;
+            case flags.ACTION.NONE:
             default:
             }
         }
