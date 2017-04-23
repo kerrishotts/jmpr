@@ -34,10 +34,7 @@ module.exports = {
         ],
         "callback-return": "error",
         "camelcase": "error",
-        "capitalized-comments": [
-            "error",
-            "never"
-        ],
+        "capitalized-comments": "off",
         "class-methods-use-this": "error",
         "comma-dangle": "off",
         "comma-spacing": [
@@ -51,7 +48,7 @@ module.exports = {
             "error",
             "last"
         ],
-        "complexity": "error",
+        "complexity": "warn",
         "computed-property-spacing": [
             "error",
             "never"
@@ -86,7 +83,7 @@ module.exports = {
         "id-blacklist": "error",
         "id-length": "off",
         "id-match": "error",
-        "indent": "warn",
+        "indent": "off",
         "init-declarations": "off",
         "jsx-quotes": "error",
         "key-spacing": "error",
@@ -115,7 +112,7 @@ module.exports = {
             "error",
             "never"
         ],
-        "new-cap": "error",
+        "new-cap": "off",
         "new-parens": "error",
         "newline-after-var": "off",
         "newline-before-return": "off",
@@ -123,7 +120,7 @@ module.exports = {
         "no-alert": "error",
         "no-array-constructor": "error",
         "no-await-in-loop": "error",
-        "no-bitwise": "warn",
+        "no-bitwise": "off",
         "no-caller": "error",
         "no-catch-shadow": "error",
         "no-confusing-arrow": "off",
@@ -167,7 +164,7 @@ module.exports = {
         "no-new-require": "error",
         "no-new-wrappers": "error",
         "no-octal-escape": "error",
-        "no-param-reassign": "error",
+        "no-param-reassign": "off",
         "no-path-concat": "error",
         "no-plusplus": "off",
         "no-process-env": "error",
@@ -257,11 +254,8 @@ module.exports = {
                 "before": false
             }
         ],
-        "sort-imports": "error",
-        "sort-keys": [
-            "warn",
-            "asc"
-        ],
+        "sort-imports": "off",
+        "sort-keys": "off",
         "sort-vars": "off",
         "space-before-blocks": "error",
         "space-before-function-paren": "off",
