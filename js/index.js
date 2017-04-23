@@ -21,8 +21,6 @@ if ("ontouchstart" in window) {
     controllersToCreate.push(touch);
 }
 
-display.print("Ready?", "Touch to start");
-
 let controllers = new ControllerCollection(controllersToCreate);
 let game = new Game({ controllers });
 game.start();
