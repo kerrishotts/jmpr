@@ -37,7 +37,12 @@ export default class Game {
         this.state = initialState;
 
         this.camera = undefined;
+        this.playerCamera = undefined;
+
         this.scene = undefined;
+        this.playerScene = undefined;
+        this.starScene = undefined;
+
         this.renderer = undefined;
 
         this.beat = new Beat();
@@ -62,9 +67,7 @@ export default class Game {
         this.controllers.init();
 
         this.camera = new THREE.PerspectiveCamera(120, window.innerWidth / window.innerHeight, 1, 5000);
-
-        var listener = new THREE.AudioListener();
-        this.camera.add(listener);
+        this.playerCamera = new THREE.PerspectiveCamera(120, window.innerWidth / window.innerHeight, 1, 5000);
 
         this.renderer = new THREE.WebGLRenderer({
             antialias: navigator.userAgent.match(/iPad|iPhone/i),
@@ -72,6 +75,7 @@ export default class Game {
         this.renderer.setFaceCulling(THREE.CullFaceBack, THREE.FrontFaceDirectionCCW);
         this.renderer.setPixelRatio(devicePixelRatio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.autoClear = false;
 
         document.body.appendChild(this.renderer.domElement);
 
@@ -106,6 +110,82 @@ export default class Game {
         }
     }
 
+    makeScene() {
+        this.scene = new THREE.Scene();
+        this.playerScene = new THREE.Scene();
+        this.starScene = new THREE.Scene();
+
+        let scene = this.scene,
+            playerScene = this.playerScene,
+            starScene = this.starScene,
+            level = this.currentLevelDefinition;
+
+        [scene, playerScene, starScene].forEach(scene => {
+            let hLight = new THREE.HemisphereLight(0xFFFFFF, 0x000000, 1);
+            scene.add(hLight)
+        });
+
+        [scene, playerScene, starScene].forEach(scene => {
+            let aLight = new THREE.AmbientLight(0x404040);
+            scene.add(aLight)
+        });
+
+        [scene, playerScene, starScene].forEach(scene => {
+            let dLight = new THREE.DirectionalLight(0xFFFFFF, 0.25);
+            dLight.position.set(0, 10, 3);
+            scene.add(dLight)
+        });
+
+        let bgColor = level.options.bgColor || 0x000000;
+        [scene, playerScene, starScene].forEach(scene => {
+            scene.fog = new THREE.Fog(bgColor, 1, this.camera.far);
+        });
+        this.renderer.setClearColor(bgColor);
+
+        // add some stars to the level?
+        let lineGeometry = new THREE.Geometry();
+        for (let i = 0; i < 20000; i++) {
+            let v = new THREE.Vector3();
+            v.x = (Math.random() * 20000 / 2) - 10000 / 2;
+            v.y = (Math.random() * 40000 / 2) - 20000 / 2;
+            v.z = -(Math.random() * (this.level.level.length * this.level.blockSize)) - 1000;
+            lineGeometry.vertices.push(v);
+            v = v.clone();
+            v.z -= 100 + (Math.random() * 1000);
+            lineGeometry.vertices.push(v);
+        }
+
+        let lineMaterial = new THREE.LineBasicMaterial({ color: 0xFFFFFF, opacity: 0.75, linewidth: 2, transparent: true });
+        let lines = new THREE.LineSegments(lineGeometry, lineMaterial);
+        this._lines = lines;
+        starScene.add(lines);
+
+        let planeColor = level.options.planeColor || 0x800000;
+        let planeGeometry = new THREE.PlaneGeometry(100000, this.level.level.length * this.level.blockSize);
+        let planeMaterial = new THREE.MeshLambertMaterial({ color: planeColor });
+        let planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
+        planeMesh.rotation.x = -Math.PI / 2;
+        planeMesh.position.y = -(this.level.stepSize * (Level.HALF_MAX_STEPS + 8));
+        this.scene.add(planeMesh);
+
+        this.level.addToScene(scene);
+
+        let sphereGeometry = new THREE.SphereBufferGeometry(this.level.blockSize / 4, 32, 32),
+            sphereMaterial = new THREE.MeshPhongMaterial({ color: 0x6090C0, shininess: 100, transparent: true /*, opacity: 0.25*/ }),
+            sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        playerScene.add(sphere);
+        this._sphere = sphere;
+
+        let shadowGeometry = new THREE.CircleBufferGeometry(this.level.blockSize / 4, 32, 32),
+            shadowMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25 }),
+            shadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
+        shadow.rotation.x = -Math.PI / 2;
+        this.scene.add(shadow);
+        this._shadow = shadow;
+
+        return scene;
+    }
+
     start(atLevel = 1) {
         let normalizedLevel = atLevel - 1,
             level = levels[normalizedLevel],
@@ -123,38 +203,11 @@ export default class Game {
         }
 
         this.camera.far = this.level.blockSize * (options.drawDistance - 2);
+        this.playerCamera.far = this.camera.far;
         this.camera.updateProjectionMatrix();
-        this.scene = this.level.makeScene();
+        this.playerCamera.updateProjectionMatrix();
 
-        let bgColor = level.options.bgColor || 0x000000;
-        this.scene.fog = new THREE.Fog(bgColor, 1, this.camera.far);
-        this.renderer.setClearColor(bgColor);
-
-        // add some stars to the level?
-        let lineGeometry = new THREE.Geometry();
-        for (let i = 0; i < 20000; i++) {
-            let v = new THREE.Vertex();
-            v.x = (Math.random() * 20000 / 2) - 10000 / 2;
-            v.y = (Math.random() * 40000 / 2) - 20000 / 2;
-            v.z = -(Math.random() * (this.level.level.length * this.level.blockSize)) - 1000;
-            lineGeometry.vertices.push(v);
-            v = v.clone();
-            v.z -= 100 + (Math.random() * 1000);
-            lineGeometry.vertices.push(v);
-        }
-
-        let lineMaterial = new THREE.LineBasicMaterial({ color: 0xFFFFFF, opacity: 0.75, linewidth: 2, transparent: true });
-        let lines = new THREE.LineSegments(lineGeometry, lineMaterial);
-        this._lines = lines;
-        this.scene.add(lines);
-
-        let planeColor = level.options.planeColor || 0x800000;
-        let planeGeometry = new THREE.PlaneGeometry(100000, this.level.level.length * this.level.blockSize);
-        let planeMaterial = new THREE.MeshLambertMaterial({ color: planeColor });
-        let planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
-        planeMesh.rotation.x = -Math.PI / 2;
-        planeMesh.position.y = -(this.level.stepSize * (Level.HALF_MAX_STEPS + 8));
-        this.scene.add(planeMesh);
+        this.scene = this.makeScene();
 
         this.player = new Player({
             immortal: this.inDemoMode,
@@ -273,26 +326,36 @@ export default class Game {
         }
         let player = this.player,
             camera = this.camera,
-            beat = this.beat;
+            playerCamera = this.playerCamera;
 
         if (this.inGameMode) {
             // crouch
-            camera.position.y -= (player.crouch ? 100 : 0);
+            camera.position.y -= (player.crouch ? 100 : 50);
+            camera.position.z += this.level.blockSize / 2;
 
             // camera bob
             if (player.grounded) {
-                camera.position.x += Math.cos((player.bob / 3) * (Math.PI / 180)) * 10;
+            /*    camera.position.x += Math.cos((player.bob / 3) * (Math.PI / 180)) * 10;
                 camera.position.y += Math.abs(Math.sin((player.bob / 2) * (Math.PI / 180)) * 10);
+                */
             }
 
             // calculate fov to simulate speed
             camera.fov = Math.min(112.5 + (player.velocity.z / 2), 160);
             camera.updateProjectionMatrix();
 
+            playerCamera.fov = 125;
+            playerCamera.updateProjectionMatrix();
+
+            camera.rotation.x = -0.25; // looking down
         } else {
             camera.position.y += 400;    // up high
-            camera.quaternion.x = -0.25; // looking down
+            camera.rotation.x = -0.25; // looking down
         }
+        playerCamera.position.copy(camera.position);
+        playerCamera.quaternion.copy(camera.quaternion);
+        playerCamera.rotation.copy(camera.rotation);
+
         if (DEBUG) {
             this._stats("camera").end();
         }
@@ -333,6 +396,7 @@ export default class Game {
     animate(t) {
 
         var camera = this.camera,
+            playerCamera = this.playerCamera,
             scene = this.scene,
             level = this.level,
             renderer = this.renderer,
@@ -418,6 +482,16 @@ export default class Game {
         this._lines.position.y = camera.position.y / 3;
         this._lines.position.x = camera.position.x / 3;
 
+        this._sphere.position.copy(player.camPosition);
+        this._sphere.position.y -= this.level.blockSize - 40;
+
+        let shadowHeight = this.level.heightAtPosition(player.position);
+        this._shadow.position.copy(this._sphere.position);
+        if (shadowHeight === undefined) {
+            shadowHeight = -(this.level.stepSize * (Level.HALF_MAX_STEPS + 8));
+        }
+        this._shadow.position.y = shadowHeight + 20;
+
         // refresh level rendering
         if (DEBUG) {
             this._stats("scene").start();
@@ -430,7 +504,12 @@ export default class Game {
         if (DEBUG) {
             this._stats("render").start();
         }
+        renderer.clear();
+        renderer.render(this.starScene, camera);
+        renderer.clear(false, true, true);
         renderer.render(scene, camera);
+        renderer.clear(false, true, true);
+        renderer.render(this.playerScene, playerCamera);
         if (DEBUG) {
             this._stats("render").end();
         }
@@ -527,9 +606,12 @@ export default class Game {
         this._resizeTimer = setTimeout(() => {
             this._resizeTimer = null;
             let camera = this.camera,
+                playerCamera = this.playerCamera,
                 renderer = this.renderer;
             camera.aspect = window.innerWidth / window.innerHeight;
+            playerCamera.aspect = camera.aspect;
             camera.updateProjectionMatrix();
+            playerCamera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }, 250);
     }

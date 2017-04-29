@@ -24,7 +24,7 @@ function _createMaterial({ multi = false, withTexture = true, color, visible = t
             color,
             emissive: withTexture ? new THREE.Color(0xFFFFFF) : new THREE.Color(0x000000),
             emissiveMap: withTexture ? textures[" "] : null,
-            wireframe: false,
+            wireframe: false
         });
         material.visible = visible;
         material.needsUpdate = false;
@@ -101,7 +101,8 @@ export default class Level {
                         withTexture: true,
                         multi: true
                     });
-                    return new THREE.Mesh(box, material)
+                    let mesh = new THREE.Mesh(box, material);
+                    return mesh;
                 }));
             })
         }
@@ -151,25 +152,13 @@ export default class Level {
         return this.level.height.map(r => r.join(" ")).join(String.fromCharCode(10));
     }
 
-    makeScene() {
-        let scene = new THREE.Scene();
+    addToScene(scene) {
 
         this.updateScene(0, true);
         this._floor.forEach(z => z.forEach(mesh => scene.add(mesh)));
         this._ceiling.forEach(z => z.forEach(mesh => scene.add(mesh)));
 
-        let hLight = new THREE.HemisphereLight(0xFFFFFF, 0x000000, 1);
-        scene.add(hLight);
-
-        let aLight = new THREE.AmbientLight(0x404040);
-        scene.add(aLight);
-
-        let dLight = new THREE.DirectionalLight(0xFFFFFF, 0.25);
-        dLight.position.set(0, 10, 3);
-        scene.add(dLight);
-
         return scene;
-
     }
 
     getFaceVisibility(which, z, x) {
@@ -226,7 +215,10 @@ export default class Level {
             _floor = this._floor,
             _ceiling = this._ceiling;
 
-        let curRow = Math.max(Math.floor(-(cameraZ) / blockSize), 0);
+        let curRow = Math.max(Math.floor(-(cameraZ) / blockSize), 0)  - 1;
+        if (curRow < 0) {
+            curRow = 0;
+        }
         let maxVisibleRow = curRow + drawDistance - 1;
         let delta = curRow - this.curRow;
 
@@ -359,7 +351,7 @@ export default class Level {
     _propertyAtPosition(position, fn) {
         let blockSize = this.blockSize;
         let offsetX = (this.level.height[0].length / 2) * blockSize;
-        return fn(Math.floor(-(position.z / blockSize) + 0.0), Math.floor((position.x + offsetX) / blockSize));
+        return fn(Math.floor(-((position.z - 50) / blockSize)), Math.floor((position.x + offsetX) / blockSize));
     }
 
     flagAtPosition(position) {

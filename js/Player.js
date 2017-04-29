@@ -154,7 +154,7 @@ export default class Player {
             neededHeight += 200;        // playerHeight
         }
         if (ceilingHeight !== undefined) {
-            ceilingHeight -= 0;
+            ceilingHeight += 200;
         }
 
         if (neededHeight !== undefined) {
