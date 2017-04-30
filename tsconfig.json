@@ -5,5 +5,5 @@
     "module": "es2015", // DCR
     "inlineSourceMap": true
   },
-  "include": ["js/**/*"]
+  "include": ["www/js/**/*"]
 }

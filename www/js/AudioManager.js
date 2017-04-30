@@ -1,4 +1,5 @@
-/* globals Waud, WaudSound */
+import { Waud, WaudSound } from "waud.js";
+
 export class AudioManager {
     constructor() {
         this._sounds = {};

@@ -1,4 +1,12 @@
-/* globals THREE, rStats, threeStats, glStats */
+/* globals rStats, threeStats, glStats */
+import * as THREE from "three.js";
+import MTLLoaderFn from "../vendor/three/loaders/MTLLoader.js";
+import OBJLoaderFn from "../vendor/three/loaders/OBJLoader.js";
+
+let MTLLoader = MTLLoaderFn(THREE),
+    OBJLoader = OBJLoaderFn(THREE);
+
+
 import Beat from "./Beat.js";
 import Delta from "./Delta.js";
 import Level from "./Level.js";
@@ -31,6 +39,15 @@ const WAITING_REASON = {
     DEMO: 30,
     DIED: 99,
 }
+
+const PERSON_VIEW = {
+    FIRST: 1,
+    THIRD: 3
+}
+
+const PLAYER_PERSON_VIEW = PERSON_VIEW.THIRD;
+
+const USE_REAL_SHADOWS = false;
 
 export default class Game {
     constructor({ controllers, initialState = "demo" } = {}) {
@@ -76,6 +93,13 @@ export default class Game {
         this.renderer.setPixelRatio(devicePixelRatio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.autoClear = false;
+
+        if (USE_REAL_SHADOWS) {
+            this.renderer.shadowMap.enabled = true;
+            this.renderer.shadowMap.type = THREE.BasicShadowMap;
+            this.renderer.shadowMap.renderReverseSided = false;
+        }
+
 
         document.body.appendChild(this.renderer.domElement);
 
@@ -130,10 +154,24 @@ export default class Game {
             scene.add(aLight)
         });
 
-        [scene, playerScene, starScene].forEach(scene => {
+        [scene, playerScene, starScene].forEach(theScene => {
             let dLight = new THREE.DirectionalLight(0xFFFFFF, 0.25);
             dLight.position.set(0, 10, 3);
-            scene.add(dLight)
+            if (theScene === scene) {
+                this._shadowLight = dLight;
+            }
+            //dLight.shadow = new THREE.LightShadow(new THREE.PerspectiveCamera(50, 1, 1200, 2500));
+
+            dLight.castShadow = theScene === scene && USE_REAL_SHADOWS;
+            theScene.add(dLight)
+
+            if (USE_REAL_SHADOWS) {
+                dLight.shadow.camera.left = -50;
+                dLight.shadow.camera.right = 50;
+                dLight.shadow.camera.top = 50;
+                dLight.shadow.camera.bottom = -50;
+                dLight.shadow.bias = -0.0001;
+            }
         });
 
         let bgColor = level.options.bgColor || 0x000000;
@@ -157,6 +195,8 @@ export default class Game {
 
         let lineMaterial = new THREE.LineBasicMaterial({ color: 0xFFFFFF, opacity: 0.75, linewidth: 2, transparent: true });
         let lines = new THREE.LineSegments(lineGeometry, lineMaterial);
+        lines.castShadow = false;
+        lines.receiveShadow = false;
         this._lines = lines;
         starScene.add(lines);
 
@@ -166,22 +206,54 @@ export default class Game {
         let planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
         planeMesh.rotation.x = -Math.PI / 2;
         planeMesh.position.y = -(this.level.stepSize * (Level.HALF_MAX_STEPS + 8));
+        planeMesh.castShadow = false;
+        planeMesh.receiveShadow = USE_REAL_SHADOWS;
         this.scene.add(planeMesh);
 
-        this.level.addToScene(scene);
+        this.level.addToScene(scene, USE_REAL_SHADOWS);
 
-        let sphereGeometry = new THREE.SphereBufferGeometry(this.level.blockSize / 4, 32, 32),
-            sphereMaterial = new THREE.MeshPhongMaterial({ color: 0x6090C0, shininess: 100, transparent: true /*, opacity: 0.25*/ }),
-            sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-        playerScene.add(sphere);
-        this._sphere = sphere;
+        /*
+        let playerGeometry = new THREE.SphereBufferGeometry(this.level.blockSize / 4, 64, 64),
+            playerMaterial = new THREE.MeshPhongMaterial({ color: 0x6090C0, shininess: 100, transparent: true }),
+            playerMesh = new THREE.Mesh(playerGeometry, playerMaterial);
+        playerScene.add(playerMesh);
+        this._playerMesh = playerMesh;
+        */
 
-        let shadowGeometry = new THREE.CircleBufferGeometry(this.level.blockSize / 4, 32, 32),
-            shadowMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25 }),
-            shadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
-        shadow.rotation.x = -Math.PI / 2;
-        this.scene.add(shadow);
-        this._shadow = shadow;
+        let model = "car-kart-blue";
+        let mtlLoader = new MTLLoader();
+        mtlLoader.setPath("assets/");
+        mtlLoader.load(`${model}.mtl`, materials => {
+            materials.preload();
+
+            let objLoader = new OBJLoader();
+            objLoader.setMaterials(materials);
+            objLoader.setPath("assets/");
+            objLoader.load(`${model}.obj`, obj => {
+
+                this._playerMesh = obj;
+                obj.scale.set(this.level.blockSize / 1, this.level.blockSize / 1, this.level.blockSize / 1);
+                obj.castShadow = USE_REAL_SHADOWS;
+                obj.receiveShadow = USE_REAL_SHADOWS;
+                this._shadowLight.target = obj;
+
+                if (USE_REAL_SHADOWS) {
+                    this.scene.add(obj);
+                } else {
+                    playerScene.add(obj);
+                }
+            });
+        });
+
+        if (!USE_REAL_SHADOWS) {
+            let shadowGeometry = new THREE.PlaneBufferGeometry(this.level.blockSize / 2.33, this.level.blockSize / 1.33, 1, 1),
+                shadowMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25 }),
+                shadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
+            shadow.rotation.x = -Math.PI / 2;
+            //this.scene.add(shadow);
+            playerScene.add(shadow);
+            this._shadow = shadow;
+        }
 
         return scene;
     }
@@ -214,7 +286,8 @@ export default class Game {
             level: this.level,
             restitution: 0,
             position: new THREE.Vector3(0, 200, 1500),
-            velocity: new THREE.Vector3(0, 0, 25)
+            velocity: new THREE.Vector3(0, 0, 25),
+            rotation: new THREE.Euler(0, Math.PI, 0)
         });
 
         this._resetPhysics();
@@ -231,13 +304,9 @@ export default class Game {
 
         this.state = state || this.state;
 
-        player.immortal = this.inDemoMode;  // player becomes immortal if in demo
+        player.reset();
 
-        player.position.set(0, 200, 1500);  // beginning of the level
-        player.velocity.set(0, 0, 25);      // initial velocity
-        player.grounded = false;
-        player.bob = 0;                     // reset bobbing
-        player.dead = false;                // player lives!
+        player.immortal = this.inDemoMode;  // player becomes immortal if in demo
 
         // wait for interaction to start if in game
         if (waitReason !== undefined) {
@@ -331,7 +400,10 @@ export default class Game {
         if (this.inGameMode) {
             // crouch
             camera.position.y -= (player.crouch ? 100 : 50);
-            camera.position.z += this.level.blockSize / 2;
+
+            if (PLAYER_PERSON_VIEW === PERSON_VIEW.THIRD) {
+                camera.position.z += this.level.blockSize; // / 2;
+            }
 
             // camera bob
             if (player.grounded) {
@@ -347,7 +419,11 @@ export default class Game {
             playerCamera.fov = 125;
             playerCamera.updateProjectionMatrix();
 
-            camera.rotation.x = -0.25; // looking down
+            /*if (PLAYER_PERSON_VIEW === PERSON_VIEW.THIRD) {
+                camera.rotation.x = -Math.PI / 16; // looking down
+            } else { */
+                camera.rotation.x = 0;
+            //}
         } else {
             camera.position.y += 400;    // up high
             camera.rotation.x = -0.25; // looking down
@@ -403,8 +479,7 @@ export default class Game {
             player = this.player,
             //inDemo = this.inDemoMode,
             inGame = this.inGameMode,
-            camPosition,
-            camQuaternion;
+            camPosition, camQuaternion, camRotation;
 
         // report fps and get delta
         var df = this.beginFrame(t);
@@ -460,7 +535,7 @@ export default class Game {
                     this.update(1);
                 }
             }
-            [camPosition, camQuaternion] = this.player.interpolate(1 + this._physicsAccumulator);
+            [camPosition, camQuaternion, camRotation] = this.player.interpolate(1 + this._physicsAccumulator);
             camera.position.copy(camPosition);
             camera.quaternion.copy(camQuaternion);
             break;
@@ -472,25 +547,40 @@ export default class Game {
             camera.quaternion.copy(this.player.quaternion);
         }
 
+
         if (DEBUG) {
             this._stats("physics").end();
         }
 
         this.updateCamera(1);
+
+
         // blink lines
         this._lines.material.opacity = 0.75 - (this.beat.normalizedTimeSinceLastBeat / 2);
         this._lines.position.y = camera.position.y / 3;
         this._lines.position.x = camera.position.x / 3;
 
-        this._sphere.position.copy(player.camPosition);
-        this._sphere.position.y -= this.level.blockSize - 40;
-
-        let shadowHeight = this.level.heightAtPosition(player.position);
-        this._shadow.position.copy(this._sphere.position);
-        if (shadowHeight === undefined) {
-            shadowHeight = -(this.level.stepSize * (Level.HALF_MAX_STEPS + 8));
+        if (this._playerMesh) {
+            this._playerMesh.visible = PLAYER_PERSON_VIEW === PERSON_VIEW.THIRD;
+            this._playerMesh.position.copy(player.camPosition);
+            this._playerMesh.quaternion.copy(player.camQuaternion);
+            this._playerMesh.rotation.copy(player.camRotation);
+            this._playerMesh.position.y -= this.level.blockSize; // - 40;
         }
-        this._shadow.position.y = shadowHeight + 20;
+
+        if (!USE_REAL_SHADOWS && this._playerMesh) {
+            this._shadow.visible = PLAYER_PERSON_VIEW === PERSON_VIEW.THIRD;
+            let shadowHeight = this.level.heightAtPosition(player.camPosition);
+            this._shadow.position.copy(this._playerMesh.position);
+            //this._shadow.quaternion.copy(this._playerMesh.quaternion);
+            //this._shadow.rotation.copy(this._playerMesh.rotation);
+            this._shadow.rotation.x = -Math.PI / 2;
+            this._shadow.rotation.z = this._playerMesh.rotation.y;
+            if (shadowHeight === undefined) {
+                shadowHeight = -(this.level.stepSize * (Level.HALF_MAX_STEPS + 8));
+            }
+            this._shadow.position.y = shadowHeight + 1; //20;
+        }
 
         // refresh level rendering
         if (DEBUG) {
@@ -508,8 +598,12 @@ export default class Game {
         renderer.render(this.starScene, camera);
         renderer.clear(false, true, true);
         renderer.render(scene, camera);
-        renderer.clear(false, true, true);
-        renderer.render(this.playerScene, playerCamera);
+
+        if (PLAYER_PERSON_VIEW === PERSON_VIEW.THIRD) {
+            renderer.clear(false, true, true);
+            renderer.render(this.playerScene, playerCamera);
+        }
+
         if (DEBUG) {
             this._stats("render").end();
         }

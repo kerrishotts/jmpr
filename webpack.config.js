@@ -1,10 +1,28 @@
 /* globals require, __dirname, module */
-var path = require("path");
+var path = require("path"),
+    webpack = require("webpack");
 
 module.exports = {
     context: path.resolve(__dirname),
     devtool: "inline-source-map",
-    entry: "./js/index.js",
+    entry: {
+        app: ["./www/js/index.js"],
+        vendor: [
+            "three.js",
+            "waud.js",
+            "svg-injector"
+        ]
+    },
+    resolve: {
+        extensions: [
+            ".js", ".ts",
+            "*"
+        ],
+        modules: [
+            "node_modules",
+            "node_modules/three/build"
+        ]
+    },
     module: {
         rules: [
             {
@@ -14,11 +32,21 @@ module.exports = {
                     entryFileIsJs: true
                 },
                 test: /\.([t|j]sx?)$/,
+            },
+            {
+                loader: "raw-loader",
+                test: /\.glsl$/
             }
         ],
     },
     output: {
         filename: "bundle.js",
-        path: path.resolve(__dirname, "js"),
+        path: path.resolve(__dirname, "www", "build"),
     },
+    plugins: [
+        new webpack.optimize.CommonsChunkPlugin({
+            name: "vendor",
+            filename: "vendor.js"
+        })
+    ]
 };

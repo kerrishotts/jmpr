@@ -1,4 +1,4 @@
-/* globals THREE */
+import * as THREE from "three.js";
 
 import flags from "./flags.js";
 import textures from "./textures.js";
@@ -152,11 +152,14 @@ export default class Level {
         return this.level.height.map(r => r.join(" ")).join(String.fromCharCode(10));
     }
 
-    addToScene(scene) {
+    addToScene(scene, useShadows = false) {
 
         this.updateScene(0, true);
-        this._floor.forEach(z => z.forEach(mesh => scene.add(mesh)));
-        this._ceiling.forEach(z => z.forEach(mesh => scene.add(mesh)));
+        [this._floor, this._ceiling].forEach(plane => plane.forEach(z => z.forEach(mesh => {
+            mesh.castShadow = useShadows;
+            mesh.receiveShadow = useShadows;
+            scene.add(mesh);
+        })));
 
         return scene;
     }
@@ -351,7 +354,7 @@ export default class Level {
     _propertyAtPosition(position, fn) {
         let blockSize = this.blockSize;
         let offsetX = (this.level.height[0].length / 2) * blockSize;
-        return fn(Math.floor(-((position.z - 50) / blockSize)), Math.floor((position.x + offsetX) / blockSize));
+        return fn(Math.floor(-((position.z - 100) / blockSize)), Math.floor((position.x + offsetX) / blockSize));
     }
 
     flagAtPosition(position) {

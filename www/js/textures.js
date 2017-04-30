@@ -1,4 +1,4 @@
-/*global THREE*/
+import * as THREE from "three.js";
 
 import flags from "./flags.js";
 
