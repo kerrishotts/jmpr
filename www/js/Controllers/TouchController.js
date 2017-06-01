@@ -1,10 +1,23 @@
 import Controller from "./Controller.js";
 import util from "../util.js";
 
+const eventMap = {
+    "touchstart": "onPress",
+    "mousedown": "onPress",
+    "touchend": "onRelease",
+    "mouseup": "onRelease"
+};
+
+const PASSIVE_HANDLER = false;
+
 export default class TouchController extends Controller {
     _createControlSurface() {
         let body = document.body,
-            buttons = ["left", "right", "up|top", "down|bottom"];
+            buttons = ["left", "right", "up|top", "down|bottom"],
+            handlerOpts = {
+                passive: PASSIVE_HANDLER,
+                capture: false
+            };
         this._els = {};
         buttons.forEach(button => {
             let buttonEl = document.createElement("button"),
@@ -20,12 +33,13 @@ export default class TouchController extends Controller {
             this._els[buttonDir] = buttonEl;
         });
 
+
         if ("ontouchstart" in window) {
-            body.addEventListener("touchstart", this._pressEvent = evt => this.onPress(evt));
-            body.addEventListener("touchend", this._releaseEvent = evt => this.onRelease(evt));
+            body.addEventListener("touchstart", this, handlerOpts);
+            body.addEventListener("touchend", this, handlerOpts);
         } else {
-            body.addEventListener("mousedown", this._pressEvent = evt => this.onPress(evt));
-            body.addEventListener("mouseup", this._releaseEvent = evt => this.onRelease(evt));
+            body.addEventListener("mousedown", this, handlerOpts);
+            body.addEventListener("mouseup", this, handlerOpts);
         }
     }
 
@@ -40,11 +54,11 @@ export default class TouchController extends Controller {
         let body = document.body;
         if (this._els) {
             if ("ontouchstart" in window) {
-                body.removeEventListener("touchstart", this._pressEvent);
-                body.removeEventListener("touchend", this._releaseEvent);
+                body.removeEventListener("touchstart", this);
+                body.removeEventListener("touchend", this);
             } else {
-                body.removeEventListener("mousedown", this._pressEvent);
-                body.removeEventListener("mouseup", this._releaseEvent);
+                body.removeEventListener("mousedown", this);
+                body.removeEventListener("mouseup", this);
             }
             this._els.forEach(el => {
                 document.body.removeChild(el);
@@ -52,37 +66,30 @@ export default class TouchController extends Controller {
         }
     }
 
-    onPress(evt) {
+    /**
+     * Handle touch and mouse events
+     *
+     * @param {Event} evt   event
+     * @return {void}
+     *
+     * @memberof TouchController
+     */
+    handleEvent(evt) {
         let target = evt.target;
-        if (target.matches(".left *") || target.matches(".left")) {
-            this.left = true;
+        let button = util.buttonFromTarget(target);
+        if (button) {
+            this[eventMap[evt.type]](button.className);
         }
-        if (target.matches(".right *") || target.matches(".right")) {
-            this.right = true;
+        if (!PASSIVE_HANDLER) {
+            evt.preventDefault();
         }
-        if (target.matches(".down *") || target.matches(".down")) {
-            this.down = true;
-        }
-        if (target.matches(".up *") || target.matches(".up")) {
-            this.up = true;
-        }
-        evt.preventDefault();
     }
 
-    onRelease(evt) {
-        let target = evt.target;
-        if (target.matches(".left *") || target.matches(".left")) {
-            this.left = false;
-        }
-        if (target.matches(".right *") || target.matches(".right")) {
-            this.right = false;
-        }
-        if (target.matches(".down *") || target.matches(".down")) {
-            this.down = false;
-        }
-        if (target.matches(".up *") || target.matches(".up")) {
-            this.up = false;
-        }
-        evt.preventDefault();
+    onPress(btn) {
+        this[btn] = true;
+    }
+
+    onRelease(btn) {
+        this[btn] = false;
     }
 }
