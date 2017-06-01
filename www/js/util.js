@@ -38,5 +38,16 @@ export default {
         svgIconEl.setAttributeNS(XLINK_NS, "xlink:href", `#${icon}`);
         svgWrapper.appendChild(svgIconEl);
         return svgWrapper;
+    },
+    buttonFromTarget(target, limit = 5) {
+        let btn = target,
+            numTries = 0;
+        while (!(btn instanceof HTMLButtonElement) && btn && (numTries++ < limit)) {
+            btn = btn.parentElement;
+        }
+        return (btn instanceof HTMLButtonElement) ? btn : null;
+    },
+    simpleProperCase(str) {
+        return str ? str[0].toUpperCase() + str.substr(1) : "";
     }
 }
