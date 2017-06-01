@@ -71,6 +71,7 @@ export default class Game {
         this.controllers = controllers;
 
         this.delta = new Delta();
+        this.delta.log = 19;
         this._physicsAccumulator = 0;
 
         this._stats = null;
@@ -373,12 +374,16 @@ export default class Game {
         player.defyGravity = false;
         if (up) {
             if (player.grounded) {
+                this.delta.logGroup = "JUMP";
                 player.jump();
             } else {
                 if (player.velocity.y > 0) {
                     player.defyGravity = true;
                 }
             }
+        }
+        if (!up) {
+            this.delta.logGroup = undefined
         }
         player.crouch = false;
         if (down && player.grounded) {
@@ -524,6 +529,7 @@ export default class Game {
         case PHYSICS_MODE_CONSTANT:
             this._physicsAccumulator = 0;
             player.applyPhysics(1);
+            this.player.interpolate(1);
             camera.position.copy(this.player.position);
             camera.quaternion.copy(this.player.quaternion);
             break;
@@ -543,6 +549,7 @@ export default class Game {
         default:
             this._physicsAccumulator = 0;
             player.applyPhysics(df);
+            this.player.interpolate(1);
             camera.position.copy(this.player.position);
             camera.quaternion.copy(this.player.quaternion);
         }
