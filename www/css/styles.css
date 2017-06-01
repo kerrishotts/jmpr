@@ -12,12 +12,17 @@
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
     outline: none;
+    touch-action: manipulation;
+    box-sizing: border-box;
 }
 
-body {
+html, body {
+    width: 100vw;
+    height: 100vh;
+    -webkit-overflow-scrolling: auto;
+    touch-action: manipulation;
     overflow: hidden;
     margin: 0;
-    touch-action: manipulation;
 }
 
 /* svg icons */
@@ -151,6 +156,9 @@ canvas {
     display: flex;
     flex-direction: column;
     text-shadow: 4px 4px 0 black;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
 }
 .msg h1 {
     /*animation: 3s ease-in-out 0s infinite alternate rot; ,
