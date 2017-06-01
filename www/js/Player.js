@@ -305,8 +305,10 @@ export default class Player {
     }
 
     jump() {
-        this.velocity.y = -115;
-        audioManager.play("jump");
+        if (this.velocity.y >= 0) {
+            this.velocity.y = -115;
+            audioManager.play("jump");
+        }
     }
 
     die() {
