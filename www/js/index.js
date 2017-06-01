@@ -13,7 +13,7 @@ SVGInjector(document.querySelectorAll("img.inject-svg"));
 
 // sounds we need from the start
 audioManager.add({ name: "bg", url: "music/roccow-welcome.mp3", autoplay: true, loop: true });
-audioManager.add({ name: "jump", url: "sfx/jump.wav" });
+audioManager.add({ name: "jump", url: "sfx/jump.wav", volume: 0.5 });
 audioManager.add({ name: "explode", url: "sfx/explosion.wav" });
 
 let kbd = new KeyboardController();

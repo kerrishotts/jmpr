@@ -83,10 +83,11 @@ export class AudioManager {
         }
     }
 
-    add({ name, url, autoplay = false, loop = false } = {}) {
+    add({ name, url, autoplay = false, loop = false, volume = 1.0 } = {}) {
         let sound = new WaudSound(url, {
             autoplay,
-            loop
+            loop,
+            volume
         });
         if (this._sounds[name]) {
             if (this._sounds[name].isPlaying()) {
