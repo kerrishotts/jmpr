@@ -39,7 +39,7 @@ export class AudioManager {
         if (!sound) {
             Waud.pause();
         } else {
-            let theSound = this._sounds[sound];
+            var theSound = this._sounds[sound];
             if (theSound) {
                 theSound.pause();
             }
@@ -50,7 +50,7 @@ export class AudioManager {
         if (!sound) {
             Waud.stop();
         } else {
-            let theSound = this._sounds[sound];
+            var theSound = this._sounds[sound];
             if (theSound) {
                 theSound.stop();
             }
@@ -60,6 +60,7 @@ export class AudioManager {
     play(sound, at = 0) {
         let theSound = this._sounds[sound];
         if (theSound) {
+            theSound.stop();
             theSound.setTime(at);
             theSound.play();
         }
@@ -83,11 +84,12 @@ export class AudioManager {
         }
     }
 
-    add({ name, url, autoplay = false, loop = false, volume = 1.0 } = {}) {
+    add({ name, url, autoplay = false, loop = false, volume = 1.0, autostop = true } = {}) {
         let sound = new WaudSound(url, {
             autoplay,
             loop,
-            volume
+            volume,
+            autostop
         });
         if (this._sounds[name]) {
             if (this._sounds[name].isPlaying()) {
