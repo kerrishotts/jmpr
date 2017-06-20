@@ -16,14 +16,14 @@ function _createMaterial({ multi = false, withTexture = true, color, visible = t
             _createMaterial({
                 color,
                 visible,
-                withTexture: side === "top" || side,
+                withTexture: withTexture && side === "top",
             }));
         //material.needsUpdate = false;
     } else {
         material = new THREE.MeshLambertMaterial({
             color,
-            emissive: withTexture ? new THREE.Color(0xFFFFFF) : new THREE.Color(0x000000),
-            emissiveMap: withTexture ? textures[" "] : null,
+            //emissive: withTexture ? new THREE.Color(0xFFFFFF) : new THREE.Color(0x000000),
+            map: withTexture ? textures["!"] : null,
             wireframe: false
         });
         material.visible = visible;
@@ -48,7 +48,9 @@ function _setTexture(material, flag) {
     if (material instanceof Array) {
         _setTexture(material[2], flag);
     } else {
-        material.emissiveMap = textures[flag];
+        //material.emissiveMap = textures[flag];
+        material.map = textures[flag];
+
     }
 }
 
@@ -81,6 +83,11 @@ export default class Level {
         this._ceiling = [];
         this._speeds = [];
         this._initBoxArray();
+
+        this._boundFlagAtCoordinates = this.flagAtCoordinates.bind(this);
+        this._boundHeightAtCoordinates = this.heightAtCoordinates.bind(this);
+        this._boundCeilingAtCoordinates = this.ceilingAtCoordinates.bind(this);
+        this._boundTargetSpeedAtCoordinates = this.targetSpeedAtCoordinates.bind(this);
     }
 
     _initBoxArray() {
@@ -98,7 +105,7 @@ export default class Level {
                 arr.push(level.height[0].map((_, idx) => {
                     let material = _createMaterial({
                         color: this.colors[(z + idx) % this.colors.length],
-                        withTexture: true,
+                        withTexture: arr === _floor, /* only floors get textures */
                         multi: true
                     });
                     let mesh = new THREE.Mesh(box, material);
@@ -227,28 +234,31 @@ export default class Level {
 
         let colors = this.colors;
 
+        let offsetY, i, row, x, r, offsetX, c, h, flag, floor, ceiling, halfHeight, z, flagsInRow, dz, colorPicks, color;
+
         // move floor as needed to the end of the level
         if (force || delta > 0) {
-            let offsetY = HALF_MAX_STEPS * stepSize, halfHeight = HALF_MAX_STEPS * stepSize;
+            offsetY = HALF_MAX_STEPS * stepSize;
+            halfHeight = HALF_MAX_STEPS * stepSize;
 
-            for (let i = 0; i < delta; i++) {
-                let row = _floor.shift();
+            for (i = 0; i < delta; i++) {
+                row = _floor.shift();
                 _floor.push(row);
                 row = _ceiling.shift();
                 _ceiling.push(row);
             }
 
-            for (let z = force ? curRow : (maxVisibleRow - delta); z <= Math.min(level.length - 1, maxVisibleRow); z++) {
-                let r = level.height[z],
-                    flagsInRow = level.flags[z];
-                let offsetX = (r.length / 2) * blockSize - (blockSize / 2);
-                for (let x = r.length - 1; x > -1; x--) {
-                    let c = r[x],
-                        flag = flagsInRow[x] || " ",
-                        floor = _floor[z - curRow][x],
-                        ceiling = _ceiling[z - curRow][x];
+            for (z = force ? curRow : (maxVisibleRow - delta); z <= Math.min(level.length - 1, maxVisibleRow); z++) {
+                r = level.height[z];
+                flagsInRow = level.flags[z];
+                offsetX = (r.length / 2) * blockSize - (blockSize / 2);
+                for (x = r.length - 1; x > -1; x--) {
+                    c = r[x];
+                    flag = flagsInRow[x] || " ";
+                    floor = _floor[z - curRow][x];
+                    ceiling = _ceiling[z - curRow][x];
                     if (c !== undefined) {
-                        let h = c * stepSize;
+                        h = c * stepSize;
                         floor.visible = true;
                         ceiling.visible = false;
                         floor.position.set(x * blockSize - offsetX, -(halfHeight + offsetY) + h, -z * blockSize);
@@ -276,16 +286,16 @@ export default class Level {
 
         if (force || (delta > 0)) {
             // colors get change irrespective of adjusting visible floor
-            for (let z = curRow; z <= Math.min(level.length - 1, maxVisibleRow); z++) {
-                var r = level.height[z],
-                    flagsInRow = level.flags[z],
-                    dz = z - curRow;
-                for (let x = r.length - 1; x > -1; x--) {
-                    var floor = _floor[dz][x],
-                        ceiling = _ceiling[dz][x],
-                        flag = flags.getFlag(flagsInRow[x]),
-                        colorPicks = flag.colors ? flag.colors : colors,
-                        color = colorPicks[(z + x) % colorPicks.length];
+            for (z = curRow; z <= Math.min(level.length - 1, maxVisibleRow); z++) {
+                r = level.height[z];
+                flagsInRow = level.flags[z];
+                dz = z - curRow;
+                for (x = r.length - 1; x > -1; x--) {
+                    floor = _floor[dz][x];
+                    ceiling = _ceiling[dz][x];
+                    flag = flags.getFlag(flagsInRow[x]);
+                    colorPicks = flag.colors ? flag.colors : colors;
+                    color = colorPicks[(z + x) % colorPicks.length];
                     if (floor.visible) {
                         _setColor(floor.material, color);
                     }
@@ -312,12 +322,13 @@ export default class Level {
     heightAtCoordinates(z, x) {
         let offsetY = HALF_MAX_STEPS * this.stepSize;
         let r = this.level.height[z];
+        let c, h;
         if (r) {
-            let c = r[x];
+            c = r[x];
             if (c === undefined) {
                 return undefined;
             }
-            let h = -offsetY + (c * this.stepSize);
+            h = -offsetY + (c * this.stepSize);
             return h;
         } else {
             return undefined;
@@ -326,8 +337,9 @@ export default class Level {
 
     flagAtCoordinates(z, x) {
         let r = this.level.flags[z];
+        let flag;
         if (r) {
-            let flag = r[x];
+            flag = r[x];
             return flags.getFlag(flag);
         } else {
             return undefined;
@@ -336,15 +348,16 @@ export default class Level {
 
     ceilingAtCoordinates(z, x) {
         let r = this.level.height[z],
-            flags = this.level.flags[z];
+            flags = this.level.flags[z],
+            ceiling, c, h;
         if (r && flags) {
-            let ceiling = parseInt(flags[x], 16);
+            ceiling = parseInt(flags[x], 16);
             if (!Number.isNaN(ceiling) && flags[x].toUpperCase() == flags[x]) {
-                let c = r[x];
+                c = r[x];
                 if (c === undefined) {
                     return undefined;
                 }
-                let h = this.heightAtCoordinates(z, x) + (ceiling * this.blockSize);
+                h = this.heightAtCoordinates(z, x) + (ceiling * this.blockSize);
                 return h;
             }
         }
@@ -358,19 +371,19 @@ export default class Level {
     }
 
     flagAtPosition(position) {
-        return this._propertyAtPosition(position, this.flagAtCoordinates.bind(this));
+        return this._propertyAtPosition(position, this._boundFlagAtCoordinates);
     }
 
     heightAtPosition(position) {
-        return this._propertyAtPosition(position, this.heightAtCoordinates.bind(this));
+        return this._propertyAtPosition(position, this._boundHeightAtCoordinates);
     }
 
     ceilingAtPosition(position) {
-        return this._propertyAtPosition(position, this.ceilingAtCoordinates.bind(this));
+        return this._propertyAtPosition(position, this._boundCeilingAtCoordinates);
     }
 
     targetSpeedAtPosition(position) {
-        return this._propertyAtPosition(position, this.targetSpeedAtCoordinates.bind(this));
+        return this._propertyAtPosition(position, this._boundTargetSpeedAtCoordinates);
     }
 
     static createLevel(level, opts) {

@@ -1,7 +1,8 @@
-/* globals rStats, threeStats, glStats */
 import * as THREE from "three.js";
 import MTLLoaderFn from "../vendor/three/loaders/MTLLoader.js";
 import OBJLoaderFn from "../vendor/three/loaders/OBJLoader.js";
+
+import { _HANDLE_BROADCAST } from "./lib/Emitter.js";
 
 let MTLLoader = MTLLoaderFn(THREE),
     OBJLoader = OBJLoaderFn(THREE);
@@ -16,8 +17,6 @@ import textVariations from "./textVariations.js";
 
 import display from "./Display.js";
 import audioManager from "./AudioManager.js";
-
-const DEBUG = false
 
 const TARGET_FPS = 60;
 const MS_PER_SECOND = 1000;
@@ -45,12 +44,12 @@ const PERSON_VIEW = {
     THIRD: 3
 }
 
-const PLAYER_PERSON_VIEW = PERSON_VIEW.THIRD;
+const PLAYER_PERSON_VIEW = PERSON_VIEW.FIRST;
 
 const USE_REAL_SHADOWS = false;
 
 export default class Game {
-    constructor({ controllers, initialState = "demo" } = {}) {
+    constructor({ controllers = null, initialState = "demo" } = {}) {
         this.state = initialState;
 
         this.camera = undefined;
@@ -69,9 +68,9 @@ export default class Game {
         this.waitingForInteraction = initialState === "demo" ? WAITING_REASON.DEMO : WAITING_REASON.NEW_GAME;
 
         this.controllers = controllers;
+        this.controllers.addListener(this);
 
         this.delta = new Delta();
-        this.delta.log = 19;
         this._physicsAccumulator = 0;
 
         this._stats = null;
@@ -105,34 +104,6 @@ export default class Game {
         document.body.appendChild(this.renderer.domElement);
 
         window.addEventListener("resize", evt => this.onResize(evt));
-
-        if (DEBUG) {
-            this._gStats = new glStats();
-            this._tStats = new threeStats(this.renderer);
-            this._stats = new rStats({
-                values: {
-                    frame: { caption: "Total frame time (ms)", over: 16 },
-                    raf: { caption: "Time since last rAF (ms)" },
-                    fps: { caption: "Framerate (FPS)", below: 50 },
-                    scene: { caption: "Scene Update (ms)", over: 16 },
-                    camera: { caption: "Camera Update (ms)", over: 16 },
-                    update: { caption: "Controls Update (ms)", over: 16 },
-                    physics: { caption: "Physics Update (ms)", over: 16 },
-                    render: { caption: "WebGL Render (ms)", over: 16 }
-                },
-                groups: [
-                    { caption: "Framerate", values: ["fps", "raf"] },
-                    { caption: "Budget", values: ["frame", "camera", "update", "physics", "scene", "render"] }
-                ],
-                fractions: [
-                    { base: "frame", steps: ["camera", "update", "physics", "scene", "render"] }
-                ],
-                plugins: [
-                    this._gStats,
-                    this._tStats
-                ]
-            });
-        }
     }
 
     makeScene() {
@@ -318,22 +289,18 @@ export default class Game {
     }
 
     update() {
-        if (DEBUG) {
-            this._stats("update").start();
-        }
-        let player = this.player,
-            state = this.controllers.readState(),
-            up = state.up,
-            down = state.down,
-            left = state.left,
-            right = state.right,
-            pause = state.pause; /*,
-            exit = state.exit,
-            retry = state.retry;*/
-
         // if we're waiting for something, or paused, take care of rendering that
         // to the screen
         this._renderMessage();
+    }
+
+    [_HANDLE_BROADCAST](msg, sender) {
+        if (sender !== this.controllers) {
+            return;
+        }
+        let player = this.player,
+            { up, down, left, right, pause, exit, retry } = msg;
+
 
         if (up || down || left || right) {
             if (this.waitingForInteraction !== WAITING_REASON.NOT_WAITING) {
@@ -371,33 +338,25 @@ export default class Game {
                 player.velocity.x = -player.velocity.z;
             }
         }
-        player.defyGravity = false;
         if (up) {
             if (player.grounded) {
-                this.delta.logGroup = "JUMP";
                 player.jump();
+                player.defyGravity = true;
             } else {
                 if (player.velocity.y > 0) {
                     player.defyGravity = true;
                 }
             }
-        }
-        if (!up) {
-            this.delta.logGroup = undefined
+        } else {
+            player.defyGravity = false;
         }
         player.crouch = false;
         if (down && player.grounded) {
             player.crouch = true;
         }
-        if (DEBUG) {
-            this._stats("update").end();
-        }
     }
 
     updateCamera() {
-        if (DEBUG) {
-            this._stats("camera").start();
-        }
         let player = this.player,
             camera = this.camera,
             playerCamera = this.playerCamera;
@@ -407,14 +366,15 @@ export default class Game {
             camera.position.y -= (player.crouch ? 100 : 50);
 
             if (PLAYER_PERSON_VIEW === PERSON_VIEW.THIRD) {
-                camera.position.z += this.level.blockSize; // / 2;
+                camera.position.z += this.level.blockSize;
+            } else {
+                camera.position.z -= (this.level.blockSize / 2);
             }
 
             // camera bob
-            if (player.grounded) {
-            /*    camera.position.x += Math.cos((player.bob / 3) * (Math.PI / 180)) * 10;
+            if (player.grounded && PLAYER_PERSON_VIEW === PERSON_VIEW.FIRST) {
+                camera.position.x += Math.cos((player.bob / 3) * (Math.PI / 180)) * 10;
                 camera.position.y += Math.abs(Math.sin((player.bob / 2) * (Math.PI / 180)) * 10);
-                */
             }
 
             // calculate fov to simulate speed
@@ -437,9 +397,6 @@ export default class Game {
         playerCamera.quaternion.copy(camera.quaternion);
         playerCamera.rotation.copy(camera.rotation);
 
-        if (DEBUG) {
-            this._stats("camera").end();
-        }
     }
 
     requestFrame() {
@@ -447,14 +404,6 @@ export default class Game {
     }
 
     beginFrame(t) {
-        if (DEBUG) {
-            var stats = this._stats;
-            stats("frame").start();
-            this._gStats.start();
-
-            stats("rAF").tick();
-            stats("FPS").frame();
-        }
         this.requestFrame();
 
         var d = this.delta.update(t);
@@ -467,11 +416,6 @@ export default class Game {
     }
 
     endFrame() {
-        if (DEBUG) {
-            var stats = this._stats;
-            stats("frame").end();
-            stats().update();
-        }
     }
 
     animate(t) {
@@ -484,7 +428,9 @@ export default class Game {
             player = this.player,
             //inDemo = this.inDemoMode,
             inGame = this.inGameMode,
-            camPosition, camQuaternion, camRotation;
+            camPosition, camQuaternion, camRotation,
+            playerWasDead,
+            shadowHeight;
 
         // report fps and get delta
         var df = this.beginFrame(t);
@@ -504,26 +450,17 @@ export default class Game {
 
         // detect if at end of level so we can restart
         if (player.dead || player.position.z < -(level.level.length * level.blockSize)) {
-            let playerWasDead = player.dead;
+            playerWasDead = player.dead;
             this.reset(player.dead ? "game" : this.state, playerWasDead ? WAITING_REASON.DIED : undefined);
             df = 0;
             force = true;
             if (playerWasDead) {
-                if (DEBUG) {
-                    this._stats("scene").start();
-                }
                 level.updateScene(player.position.z, force);
-                if (DEBUG) {
-                    this._stats("scene").end();
-                }
                 this.endFrame();
                 return;
             }
         }
 
-        if (DEBUG) {
-            this._stats("physics").start();
-        }
 
         switch (PHYSICS_MODE) {
         case PHYSICS_MODE_CONSTANT:
@@ -555,17 +492,16 @@ export default class Game {
         }
 
 
-        if (DEBUG) {
-            this._stats("physics").end();
-        }
 
-        this.updateCamera(1);
+        this.updateCamera();
 
 
         // blink lines
+        /*
         this._lines.material.opacity = 0.75 - (this.beat.normalizedTimeSinceLastBeat / 2);
         this._lines.position.y = camera.position.y / 3;
         this._lines.position.x = camera.position.x / 3;
+        */
 
         if (this._playerMesh) {
             this._playerMesh.visible = PLAYER_PERSON_VIEW === PERSON_VIEW.THIRD;
@@ -577,7 +513,7 @@ export default class Game {
 
         if (!USE_REAL_SHADOWS && this._playerMesh) {
             this._shadow.visible = PLAYER_PERSON_VIEW === PERSON_VIEW.THIRD;
-            let shadowHeight = this.level.heightAtPosition(player.camPosition);
+            shadowHeight = this.level.heightAtPosition(player.camPosition);
             this._shadow.position.copy(this._playerMesh.position);
             //this._shadow.quaternion.copy(this._playerMesh.quaternion);
             //this._shadow.rotation.copy(this._playerMesh.rotation);
@@ -590,29 +526,16 @@ export default class Game {
         }
 
         // refresh level rendering
-        if (DEBUG) {
-            this._stats("scene").start();
-        }
         level.updateScene(player.position.z, force);
-        if (DEBUG) {
-            this._stats("scene").end();
-        }
 
-        if (DEBUG) {
-            this._stats("render").start();
-        }
         renderer.clear();
-        renderer.render(this.starScene, camera);
-        renderer.clear(false, true, true);
+        //renderer.render(this.starScene, camera);
+        //renderer.clear(false, true, true);
         renderer.render(scene, camera);
 
         if (PLAYER_PERSON_VIEW === PERSON_VIEW.THIRD) {
             renderer.clear(false, true, true);
             renderer.render(this.playerScene, playerCamera);
-        }
-
-        if (DEBUG) {
-            this._stats("render").end();
         }
 
         this.endFrame();
