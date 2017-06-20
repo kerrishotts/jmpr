@@ -121,13 +121,16 @@ export default class Player {
             startingHeight = position.y,
             startingPlummet = velocity.y;
 
+        let i, v, nqz, dqz, qPI, nr, dr, neededHeight, ceilingHeight, distance;
+        qPI = Math.PI / 4;
+
         // player can increase hang time by defying gravity
-        if (this.defyGravity) {
+        if (velocity.y > 0 && this.defyGravity) {
             velocity.y -= (gravity / 1.33) * delta;
         }
 
         // calculate new position based on velocity and gravity
-        for (let i = 0, v = velocity.getComponent(i); i < 3; i++) {
+        for (i = 0, v = velocity.getComponent(i); i < 3; i++) {
             v = -0.5 * cd * A * rho * (v * v * v) / Math.abs(v);
             v = isNaN(v) ? 0 : v;
 
@@ -154,24 +157,23 @@ export default class Player {
         this.grounded = false;
 
         // update the player's quaternion (head angle)
-        let nqz = Math.min(10, velocity.x / 4) * (Math.PI / 180);
-        let dqz = this.quaternion.z - nqz;
+        nqz = Math.min(10, velocity.x / 4) * (Math.PI / 180);
+        dqz = this.quaternion.z - nqz;
         if (dqz !== 0) {
             this.quaternion.z = util.clamp(this.quaternion.z - (((Math.abs(dqz) / 4) * util.sign(dqz)) * delta), -0.5, 0.5);
         }
 
         this.rotation.y = this.rotation.y + Math.PI;
-        let qPI = Math.PI / 4;
-        let nr = (velocity.x / level.stepSize) * qPI;
-        let dr = this.rotation.y - nr;
+        nr = (velocity.x / level.stepSize) * qPI;
+        dr = this.rotation.y - nr;
         if (dr !== 0) {
             this.rotation.y = util.clamp(this.rotation.y - (((Math.abs(dr) / 4) * util.sign(dr)) * delta), -qPI, qPI);
         }
         this.rotation.y = this.rotation.y - Math.PI;
 
         // figure out our obstacles
-        let neededHeight = level.heightAtPosition(position);
-        let ceilingHeight = level.ceilingAtPosition(position);
+        neededHeight = level.heightAtPosition(position);
+        ceilingHeight = level.ceilingAtPosition(position);
         targetForwardVelocity = level.targetSpeedAtPosition(position);
 
         if (neededHeight !== undefined) {
@@ -187,7 +189,7 @@ export default class Player {
                     position.y -= (position.y - neededHeight) / 4;
                 }
             }
-            if (startingHeight >= (neededHeight - 25) && startingPlummet >= 0) {
+            if (startingHeight >= (neededHeight - 0) && startingPlummet >= 0) {
                 // started out /above/ the floor, and was falling
                 if (position.y < neededHeight) {
                     position.y = neededHeight; // can't fall /through/ the floor
@@ -205,7 +207,7 @@ export default class Player {
             if (position.y <= neededHeight) {
                 // we're below the needed height -- can we safely transition up
                 // or are dead?
-                let distance = neededHeight - position.y;
+                distance = neededHeight - position.y;
                 if (distance > level.blockSize * 2) {
                     this.die();
                     return;
@@ -307,7 +309,7 @@ export default class Player {
     jump() {
         if (this.velocity.y >= 0) {
             this.velocity.y = -115;
-            audioManager.play("jump");
+            //audioManager.play("jump");
         }
     }
 
