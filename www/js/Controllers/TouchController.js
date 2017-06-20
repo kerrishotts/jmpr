@@ -80,6 +80,7 @@ export default class TouchController extends Controller {
         if (button) {
             this[eventMap[evt.type]](button.className);
         }
+        this._owner.emitStateChange();
         if (!PASSIVE_HANDLER) {
             evt.preventDefault();
         }

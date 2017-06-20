@@ -25,15 +25,28 @@ export default class KeyboardController extends Controller {
 
     init(owner/*: ControllerCollection*/) {
         if (super.init(owner)) {
-            document.addEventListener("keydown", this._keyDownEvent = evt => this.onKeyDown(evt));
-            document.addEventListener("keyup", this._keyUpEvent = evt => this.onKeyUp(evt));
+            document.addEventListener("keydown", this, false);
+            document.addEventListener("keyup", this, false);
             ["up", "down", "left", "right"].forEach(s => owner.registerSwitch(s));
         }
     }
 
+    handleEvent(evt) {
+        switch (evt.type) {
+            case "keydown":
+                this.onKeyDown(evt);
+                break;
+            case "keyup":
+            default:
+                this.onKeyUp(evt);
+                break;
+        }
+        this._owner.emitStateChange();
+    }
+
     cleanUp() {
-        document.removeEventListener("keydown", this._keyDownEvent);
-        document.removeEventListener("keyup", this._keyUpEvent);
+        document.removeEventListener("keydown", this);
+        document.removeEventListener("keyup", this);
     }
 
     onKeyDown(evt) {

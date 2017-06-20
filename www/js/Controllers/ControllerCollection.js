@@ -1,7 +1,9 @@
 import Delta from "../Delta.js";
+import Emitter from "../lib/Emitter.js";
 
-export default class ControllerCollection {
+export default class ControllerCollection extends Emitter {
     constructor(controllers = []) {
+        super();
         this.controllers = controllers;
         this._states = [];
         this._state = {};
@@ -40,7 +42,7 @@ export default class ControllerCollection {
         this.timeSinceLastInput = this._delta.update(performance.now());
     }
 
-    readState() {
+    updateState() {
         let state = this._state,
             states = this._states,
             controllers = this.controllers,
@@ -66,7 +68,15 @@ export default class ControllerCollection {
         if (someInput) {
             this.stateUpdated();
         }
+    }
 
+    emitStateChange() {
+        this.updateState();
+        this.emit(this._state)
+
+    }
+
+    readState() {
         return this._state;
     }
 }

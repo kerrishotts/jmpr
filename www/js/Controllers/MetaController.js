@@ -65,6 +65,7 @@ export default class MetaController extends Controller {
         if (button) {
             this[`on${util.simpleProperCase(button.className)}Pressed`](evt);
         }
+        this._owner.emitStateChange();
         if (!PASSIVE_HANDLER) {
             evt.preventDefault();
         }
