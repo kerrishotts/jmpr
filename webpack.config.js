@@ -8,7 +8,7 @@ module.exports = {
     entry: {
         app: ["./www/js/index.js"],
         vendor: [
-            "three.js",
+            "babylon.js",
             "waud.js",
             "svg-injector"
         ]
@@ -20,7 +20,7 @@ module.exports = {
         ],
         modules: [
             "node_modules",
-            "node_modules/three/build"
+            "node_modules/babylonjs/dist/preview release"
         ]
     },
     module: {

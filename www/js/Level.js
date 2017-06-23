@@ -1,7 +1,6 @@
-import * as THREE from "three.js";
+import * as BABYLON from "babylon.js";
 
 import flags from "./flags.js";
-import textures from "./textures.js";
 
 const MAX_STEPS = 256;
 const HALF_MAX_STEPS = 128;
@@ -67,23 +66,30 @@ function _setColor(material, color) {
 
 export default class Level {
     constructor(level, { blockSize = 200, stepSize = 25, drawDistance = 15,
-        colors = [0xFF8020, 0x8020FF], initialSpeed = 25 } = {}) {
-        this.blockSize = blockSize;
-        this.stepSize = stepSize;
-        this.drawDistance = drawDistance;
-        this._initialSpeed = initialSpeed;
+        colors = [0xFF8020, 0x8020FF], initialSpeed = 25, textures = [], scene } = {}) {
 
-        this.level = this._parseLevel(level);
-        this.curRow = 0;
+        this.blockSize = blockSize;             /* width and depth of each block */
+        this.stepSize = stepSize;               /* height size */
+        this.drawDistance = drawDistance;       /* how many blocks to draw on Z axis */
+
+        this.scene = scene;
+        this.textures = textures;               /* generated textures for materials */
+
+        this._initialSpeed = initialSpeed;      /* initial speed of the player */
+
+        this.level = this._parseLevel(level);   /* parsed level */
+
+        this.curRow = 0;                        /* needed for updating level rendering */
         this.maxVisibleRow = drawDistance - 1;
 
-        this.colors = colors;
+        this.colors = colors;                   /* colors for the level */
 
-        this._floor = [];
-        this._ceiling = [];
-        this._speeds = [];
-        this._initBoxArray();
+        this._floor = [];                       /* floor meshes */
+        this._ceiling = [];                     /* ceiling meshes */
+        this._speeds = [];                      /* speeds within the level */
+        this._initBoxArray();                   /* create our meshes! */
 
+        /* memory optimization; create bindings now so we can reuse later */
         this._boundFlagAtCoordinates = this.flagAtCoordinates.bind(this);
         this._boundHeightAtCoordinates = this.heightAtCoordinates.bind(this);
         this._boundCeilingAtCoordinates = this.ceilingAtCoordinates.bind(this);
@@ -96,20 +102,26 @@ export default class Level {
             drawDistance = this.drawDistance,
             level = this.level,
             _floor = this._floor,
-            _ceiling = this._ceiling;
+            _ceiling = this._ceiling,
+            sixSides = [1, 2, 3, 4, 5, 6];
 
-        let box = new THREE.BoxBufferGeometry(blockSize, MAX_STEPS * stepSize, blockSize, 1, 1, 1);
+        let boxes = this.colors.map((color, idx) => {
+            let box = BABYLON.MeshBuilder.CreateBox(`box${idx}`, {
+                size: 1,
+                width: blockSize,
+                depth: blockSize,
+                height: MAX_STEPS * stepSize,
+                faceColors: sixSides.map(side => BABYLON.Color4.fromHexString(color))
+            });
+            return box;
+        });
 
         for (let z = 0; z < drawDistance; z++) {
             [_floor, _ceiling].forEach(arr => {
                 arr.push(level.height[0].map((_, idx) => {
-                    let material = _createMaterial({
-                        color: this.colors[(z + idx) % this.colors.length],
-                        withTexture: arr === _floor, /* only floors get textures */
-                        multi: true
-                    });
-                    let mesh = new THREE.Mesh(box, material);
-                    return mesh;
+                    let colorIdx = (z + idx) % this.colors.length,
+                        instance = boxes[colorIdx].createInstance("");
+                    return instance;
                 }));
             })
         }

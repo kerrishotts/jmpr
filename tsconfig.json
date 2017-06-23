@@ -20,5 +20,10 @@
         "es2017.object"
     ]
   },
-  "include": ["www/js/**/*"]
+  "include": ["www/js/**/*"],
+  "typeAcquisition": {
+        "include": [
+            "babylonjs"
+        ]
+    }
 }
